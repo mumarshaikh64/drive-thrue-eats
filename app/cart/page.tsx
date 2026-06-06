@@ -4,6 +4,8 @@ import Link from 'next/link';
 import { Minus, Plus, ShoppingBag, ArrowLeft, Info, HelpCircle, CheckCircle2, ChevronRight, MapPin, Phone, User, Mail, CreditCard, Tag, Truck, ShoppingBasket, Utensils, Upload, X } from 'lucide-react';
 import { useCart } from '@/components/CartContext';
 import { useRouter } from 'next/navigation';
+import { resolveMenuImage } from '@/lib/image-helper';
+
 
 const DELIVERY_ZONES = [
   { area: "Handwara Town", fee: 0 },
@@ -536,7 +538,7 @@ export default function CartPage() {
               <div className="space-y-6 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
                 {items.map(item => (
                   <div key={item.id} className="flex gap-4 items-center bg-white p-3 rounded-2xl shadow-sm border border-slate-100">
-                    <img src={item.image} alt={item.name} className="w-14 h-14 rounded-xl object-cover" />
+                    <img src={resolveMenuImage(item.image)} alt={item.name} className="w-14 h-14 rounded-xl object-cover" />
                     <div className="flex-1">
                       <h4 className="font-bold text-[10px] text-slate-800 uppercase tracking-tight mb-1">{item.quantity} X {item.name}</h4>
                       <p className="font-bold text-xs text-slate-400 font-mono tracking-tighter">₹{item.price}</p>

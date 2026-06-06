@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Plus, Check, Star } from 'lucide-react';
 import { MenuItem } from '@/data/menu';
 import { useCart } from './CartContext';
+import { resolveMenuImage } from '@/lib/image-helper';
 
 export default function MenuCard({ item }: { item: MenuItem }) {
   const { addToCart, items } = useCart();
@@ -20,7 +21,7 @@ export default function MenuCard({ item }: { item: MenuItem }) {
       {/* Image Container */}
       <div className="relative overflow-hidden aspect-square bg-brand-bg">
         <img
-          src={item.image}
+          src={resolveMenuImage(item.image)}
           alt={item.name}
           width={400}
           height={400}

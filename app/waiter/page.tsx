@@ -4,6 +4,8 @@ import {
   ShoppingBag, Utensils, LayoutGrid, Plus, Minus,
   Search, X, Check, ArrowLeft, LogOut, Loader2
 } from 'lucide-react';
+import { resolveMenuImage } from '@/lib/image-helper';
+
 
 export default function WaiterPortal() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -910,7 +912,7 @@ export default function WaiterPortal() {
                                   <div key={it.id} className="bg-white p-4 rounded-3xl shadow-sm border border-transparent flex justify-between items-center group hover:border-brand-red/20 hover:shadow-xl hover:shadow-brand-red/5 hover:-translate-y-1 transition-all duration-300">
                                     <div className="flex items-center gap-4">
                                       <div className="w-16 h-16 rounded-[1.5rem] bg-slate-100 overflow-hidden flex-shrink-0 relative group-hover:scale-105 transition-transform duration-500 shadow-inner">
-                                        <img src={it.image} alt={it.name || "Menu item"} className="w-full h-full object-cover" />
+                                        <img src={resolveMenuImage(it.image)} alt={it.name || "Menu item"} className="w-full h-full object-cover" />
                                         <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent"></div>
                                       </div>
                                       <div>

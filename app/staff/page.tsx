@@ -5,6 +5,8 @@ import {
   LogOut, ChevronRight, Utensils, LayoutGrid, ChefHat, Plus,
   Search, ClipboardList, Wallet, Check
 } from 'lucide-react';
+import { resolveMenuImage } from '@/lib/image-helper';
+
 
 type View = 'dashboard' | 'pos' | 'tables' | 'kitchen';
 
@@ -449,7 +451,7 @@ export default function StaffPortal() {
                     className="bg-white p-3 md:p-5 rounded-[2rem] border border-brand-border text-left hover:border-brand-red hover:shadow-2xl hover:shadow-brand-red/5 hover:-translate-y-1 transition-all group relative overflow-hidden"
                   >
                     <div className="aspect-[4/3] rounded-3xl bg-brand-bg overflow-hidden mb-4 relative">
-                      <img src={item.image} alt={item.name || "Menu item"} className="w-full h-full object-cover group-hover:scale-110 transition-all duration-500" />
+                      <img src={resolveMenuImage(item.image)} alt={item.name || "Menu item"} className="w-full h-full object-cover group-hover:scale-110 transition-all duration-500" />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                     </div>
                     <div className="px-1">

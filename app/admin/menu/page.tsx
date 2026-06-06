@@ -1,6 +1,8 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { Plus, Trash2, Edit3, Image as ImageIcon, Save, X, Search, ChevronRight } from 'lucide-react';
+import { resolveMenuImage } from '@/lib/image-helper';
+
 
 export default function MenuManagement() {
   const [categories, setCategories] = useState<any[]>([]);
@@ -225,7 +227,7 @@ export default function MenuManagement() {
                   {cat.items.map((item: any) => (
                     <div key={item.id} className="bg-white rounded-3xl border border-gray-100 p-4 shadow-sm group hover:shadow-premium transition-all">
                       <div className="aspect-square rounded-2xl bg-gray-50 overflow-hidden mb-4 relative">
-                        <img src={item.image} alt={item.name || "Item image"} className="w-full h-full object-cover group-hover:scale-110 transition-all duration-500" />
+                        <img src={resolveMenuImage(item.image)} alt={item.name || "Item image"} className="w-full h-full object-cover group-hover:scale-110 transition-all duration-500" />
                         <div className="absolute top-3 left-3 flex flex-col gap-2">
                           {item.discount > 0 && (
                             <span className="bg-green-500 text-white text-[10px] font-bold px-3 py-1 rounded-lg shadow-lg">
@@ -382,7 +384,7 @@ export default function MenuManagement() {
                       <label className="text-[11px] font-bold uppercase text-gray-400 tracking-widest ml-1">Product Photo</label>
                       {newItem.image ? (
                         <div className="relative w-full aspect-video rounded-[2rem] overflow-hidden group">
-                          <img src={newItem.image} alt="Upload preview" className="w-full h-full object-cover" />
+                          <img src={resolveMenuImage(newItem.image)} alt="Upload preview" className="w-full h-full object-cover" />
                           <button 
                             onClick={() => setNewItem({...newItem, image: ''})}
                             className="absolute inset-0 bg-black/40 flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-all font-bold text-xs uppercase"
