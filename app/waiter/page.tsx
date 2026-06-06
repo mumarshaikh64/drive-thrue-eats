@@ -413,7 +413,7 @@ export default function WaiterPortal() {
                   <span className="hidden sm:inline font-bold text-[10px] md:text-xs uppercase tracking-widest text-white">View Order</span>
                   {(cart.length > 0 || existingOrderItems.length > 0) && (
                     <span className="absolute -top-2 -right-2 bg-white text-brand-red text-[10px] font-bold rounded-full h-5 md:h-6 px-1.5 md:px-2 flex items-center justify-center border-2 border-brand-red shadow-soft">
-                      {cart.length + existingOrderItems.length}
+                      {cart.reduce((sum, item) => sum + (item.quantity || 0), 0) + existingOrderItems.reduce((sum, item) => sum + (item.quantity || 0), 0)}
                     </span>
                   )}
                 </button>
