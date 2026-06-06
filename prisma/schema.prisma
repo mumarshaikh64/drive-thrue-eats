@@ -1,0 +1,113 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model order {
+  id                String   @id
+  orderId           String   @unique(map: "Order_orderId_key")
+  customerName      String
+  email             String?
+  phone             String
+  type              String
+  tableNumber       String?
+  deliveryArea      String?
+  address           String?  @db.Text
+  instructions      String?  @db.Text
+  paymentMethod     String?
+  transactionNumber String?
+  screenshot        String?  @db.Text
+  total             Float
+  status            String   @default("Pending")
+  chef              String?
+  waiter            String?
+  timestamp         DateTime @default(now())
+  items             String   @db.Text
+  
+  // Credit Order & Reports Integration
+  payment_type         String?  // "cash" | "upi" | "credit"
+  credit_customer_name String?
+  credit_company_name  String?
+  credit_phone         String?
+  credit_status        String?  // "pending" | "cleared"
+  is_deleted_credit    Boolean  @default(false)
+}
+
+
+model reservation {
+  id      String @id
+  tableId String
+  name    String
+  phone   String
+  date    String
+  time    String
+  guests  Int
+}
+
+model staff {
+  id    String  @id
+  sid   String  @unique(map: "Staff_sid_key")
+  name  String
+  email String?
+  phone String?
+  role  String
+  pin   String  @default("1234")
+}
+
+model table {
+  id     String @id
+  number Int    @unique(map: "Table_number_key")
+  seats  Int
+  type   String
+  status String @default("available")
+}
+
+model user {
+  id        Int      @id @default(autoincrement())
+  name      String
+  email     String   @unique(map: "User_email_key")
+  password  String
+  role      String   @default("admin")
+  createdAt DateTime @default(now())
+}
+
+model menu_category {
+  id        String      @id
+  name      String
+  icon      String
+  items     menu_item[]
+}
+
+model menu_item {
+  id           String        @id
+  name         String
+  price        Float
+  description  String?       @db.Text
+  discount     Float?        @default(0)
+  image        String        @db.Text
+  restaurant   String        @default("Burger Arena")
+  tags         String?       @default("") // Comma separated tags like "Spicy,Popular"
+  categoryName String
+  categoryId   String
+  category     menu_category @relation(fields: [categoryId], references: [id])
+}
+
+model coupon {
+  id          String   @id @default(uuid())
+  code        String   @unique
+  discount    Int
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+}
+
+model settings {
+  id        String   @id @default("restaurant_config")
+  isOpen    Boolean  @default(true)
+  mode      String   @default("auto")
+  openTime  String   @default("09:00")
+  closeTime String   @default("22:00")
+}

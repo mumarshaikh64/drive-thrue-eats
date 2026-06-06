@@ -1,0 +1,141 @@
+{
+  "restaurant_info": {
+    "name": "Drive Thru Eats",
+    "address": "Rehmani Technologies Building, By pass Road Handwara - Kashmir",
+    "email": "helpdesk@drive-thrueats.online",
+    "phone": ["01955295310", "01955313018", "+91 9682387952"],
+    "whatsapp": ["+91 7889683368", "+91 9682387952"],
+    "social_media": {
+      "facebook": "https://www.facebook.com/profile.php?id=61566862304889",
+      "instagram": "https://www.instagram.com/drivethru.eats/?igsh=M21tc3R5eDIzcXU4"
+    },
+    "copyright": "© Drive Thru Eats, 2024",
+    "powered_by": "AFKAR AL-MUSTAQBIL Technologies"
+  },
+  "promotions": {
+    "coupon_code": "Discount10",
+    "offer": "10% discount on daily offers"
+  },
+  "app_info": {
+    "android_apk": "dte-app.apk",
+    "description": "Download our mobile app for better experience"
+  },
+  "delivery_info": {
+    "areas": ["Handwara Town", "Herpora Handwara", "Surrounding Areas"]
+  },
+  "payment_methods": {
+    "M-PAY": {
+      "account_number": "0131040120000330",
+      "title": "Ishfaq Nazir"
+    },
+    "G-PAY": {
+      "account_number": "+91 9682329952"
+    },
+    "UPI": {
+      "vpa": "9682329952@okbizaxis"
+    }
+  },
+  "menu": {
+    "BREAKFAST": [
+      {"name": "FRENCH FRIES", "price": "₹ 99"},
+      {"name": "PERI PERI FRENCH FRIES", "price": "₹ 110"},
+      {"name": "TOAST NORMAL (2pc)", "price": "₹ 20"},
+      {"name": "BUTTER TOAST (2pc)", "price": "₹ 25"},
+      {"name": "FRIED TOAST (1pc)", "price": "₹ 10"},
+      {"name": "EGG TOAST (1pc)", "price": "₹ 25"},
+      {"name": "Halwa Poori (250 Gm, 2 Poori)", "price": "₹ 99"}
+    ],
+    "SHAWARMA": [
+      {"name": "SHAWARMA", "price": "₹ 120"},
+      {"name": "SHAWARMA LARGE", "price": "₹ 200"},
+      {"name": "ARABIC SHAWARMA SINGLE", "price": "₹ 150"},
+      {"name": "ARABIC SHAWARMA DOUBLE", "price": "₹ 250"}
+    ],
+    "TANDOORI CHICKEN": [
+      {"name": "TANDOORI CHICKEN 1 PC", "price": "₹ 140"},
+      {"name": "TANDOORI CHICKEN HALF", "price": "₹ 280"},
+      {"name": "TANDOORI CHICKEN FULL", "price": "₹ 560"}
+    ],
+    "PIZZA": [
+      {"name": "Chicken Fajita (Small/Medium/Large)", "price": "₹ 200/400/600"},
+      {"name": "Chicken Super Supreme (Small/Medium/Large)", "price": "₹ 200/400/600"},
+      {"name": "Hot N Spicy (Small/Medium/Large)", "price": "₹ 200/400/600"},
+      {"name": "Veggie Lover (Small/Medium/Large)", "price": "₹ 160/320/480"},
+      {"name": "Margherita (Small/Medium/Large)", "price": "₹ 150/300/450"},
+      {"name": "Cheese Lover (Small/Medium/Large)", "price": "₹ 150/300/450"},
+      {"name": "Chicken Barbeque (Small/Medium/Large)", "price": "₹ 210/420/650"},
+      {"name": "VEG PIZZA (Small/Medium/Large)", "price": "₹ 180/350/500"}
+    ],
+    "BURGER": [
+      {"name": "ZINGER BURGER", "price": "₹ 100"},
+      {"name": "ZINGER KING BURGER", "price": "₹ 120"},
+      {"name": "MAGICIAN BURGER", "price": "₹ 120"},
+      {"name": "PERI PERI BURGER", "price": "₹ 120"}
+    ],
+    "ROLLS": [
+      {"name": "VEG ROLL", "price": "₹ 70"},
+      {"name": "CHICKEN ROLL", "price": "₹ 110"},
+      {"name": "PERI PERI ROLL", "price": "₹ 120"},
+      {"name": "CRISPY TWISTER", "price": "₹ 99"},
+      {"name": "MEXICAN TWISTER", "price": "₹ 120"},
+      {"name": "PERI PERI TWISTER", "price": "₹ 120"},
+      {"name": "CHICKEN MAX ROLL", "price": "₹ 120"}
+    ],
+    "CHICKEN MEALS": [
+      {"name": "NUGGETS (5 PC/10 PC)", "price": "₹ 100/180"},
+      {"name": "POP CORN (Small/Medium/Large)", "price": "₹ 120/220/310"},
+      {"name": "CHICKEN FINGERS (5 PC/10 PC)", "price": "₹ 120/220"},
+      {"name": "DRUM STICK (1 PC/3 PC/5 PC)", "price": "₹ 100/280/460"},
+      {"name": "WINGS (4 PC/8 PC/12 PC)", "price": "₹ 150/280/420"},
+      {"name": "CRISPY CHICKEN (Half/Full)", "price": "₹ 280/540"},
+      {"name": "CRISPY FRIED CHICKEN (1 PC/4 PC/8 PC)", "price": "₹ 70/260/520"}
+    ],
+    "MOMOS": [
+      {"name": "CHICKEN STEAM MOMOS (5 PC/10 PC)", "price": "₹ 99/180"},
+      {"name": "CHICKEN FRIED MOMOS (5 PC/10 PC)", "price": "₹ 110/200"},
+      {"name": "PERI PERI MOMOS (5 PC/10 PC)", "price": "₹ 120/220"}
+    ],
+    "SANDWICH": [
+      {"name": "VEG SANDWICH", "price": "₹ 70"},
+      {"name": "CHICKEN CLUB SANDWICH", "price": "₹ 120"},
+      {"name": "PERI PERI SANDWICH", "price": "₹ 130"}
+    ],
+    "OTHER COURSE": [
+      {"name": "CHICKEN BIRIYANI (Small/Large)", "price": "₹ 110/210"},
+      {"name": "CRISPY BIRIYANI (Small/Large)", "price": "₹ 130/230"},
+      {"name": "CHICKEN FRIED RICE (Small/Large)", "price": "₹ 110/210"},
+      {"name": "VEG. NODDLES", "price": "₹ 99"},
+      {"name": "VEG. BIRYANI", "price": "₹ 100"},
+      {"name": "LOADED FRIES", "price": "₹ 149"},
+      {"name": "FISH STRIPS (5 Pcs)", "price": "₹ 100"}
+    ],
+    "COMBOS": [
+      {"name": "1 TWISTER, 1 FRIES, 1 JUICE, 1 DIP", "price": "₹ 220"}
+    ],
+    "KIDS MENU": [
+      {"name": "KIDS COMBO 1 (FRENCH FRIES, CHICKEN LOLLIPOP, JUICE)", "price": "₹ 179"},
+      {"name": "KIDS COMBO 2 (FRIES, CHICKEN POPCORN, JUICE)", "price": "₹ 220"}
+    ],
+    "APPETIZERS": [
+      {"name": "COFFEE (Small/Medium)", "price": "₹ 20/30"},
+      {"name": "TEA (Small/Medium)", "price": "₹ 20/30"},
+      {"name": "BLACK COFFEE / GREEN TEA / LEMON TEA", "price": "₹ 20"},
+      {"name": "BOURNVITA / COMPLAN / HORLICKS", "price": "₹ 30"}
+    ],
+    "SALAD'S": [
+      {"name": "VEG. SALAD (250gm)", "price": "₹ 75"},
+      {"name": "FRUIT CREAM CHAT (150gm)", "price": "₹ 149"},
+      {"name": "Mango Cream (150gm)", "price": "₹ 100"}
+    ],
+    "JUICES & SHAKES": [
+      {"name": "JUICES (Mango/Orange/Pineapple/Watermelon)", "price": "₹ 100"},
+      {"name": "SHAKES (Mango/Banana/Vanilla/Chocolate)", "price": "₹ 100 - 130"}
+    ],
+    "ICE CREAM / SWEETS": [
+      {"name": "SOFTY (Vanilla/Strawberry/Butterscotch) (Small/Medium)", "price": "₹ 30/40"}
+    ],
+    "WATER": [
+      {"name": "WATER", "price": "₹ 20"}
+    ]
+  }
+}
