@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import {
   ShoppingBag, Utensils, LayoutGrid, Plus, Minus,
-  Search, X, Check, ArrowLeft, LogOut, Loader2
+  Search, X, Check, ArrowLeft, LogOut, Loader2, Bell, AlertTriangle
 } from 'lucide-react';
 import { resolveMenuImage } from '@/lib/image-helper';
 
@@ -17,6 +17,7 @@ export default function WaiterPortal() {
   const [selectedTable, setSelectedTable] = useState<any>(null);
   const [existingOrderItems, setExistingOrderItems] = useState<any[]>([]);
   const [existingOrderId, setExistingOrderId] = useState<string | null>(null);
+  const [existingOrderStatus, setExistingOrderStatus] = useState<string | null>(null);
 
   const [tables, setTables] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
@@ -24,7 +25,53 @@ export default function WaiterPortal() {
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(false);
   const [activeOrders, setActiveOrders] = useState<any[]>([]);
+  const [allOrders, setAllOrders] = useState<any[]>([]);
+  const [waiterTab, setWaiterTab] = useState<'floor' | 'history'>('floor');
   const [showCart, setShowCart] = useState(false);
+  const [notifiedReadyOrders, setNotifiedReadyOrders] = useState<string[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('dte_waiter_notified_ready_orders');
+        return saved ? JSON.parse(saved) : [];
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    return [];
+  });
+  const [notifiedCancelledOrders, setNotifiedCancelledOrders] = useState<string[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('dte_waiter_notified_cancelled_orders');
+        return saved ? JSON.parse(saved) : [];
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    return [];
+  });
+  const [cancellationAlerts, setCancellationAlerts] = useState<{orderId: string, tableNumber: string | null, reason: string}[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('dte_waiter_cancellation_alerts');
+        return saved ? JSON.parse(saved) : [];
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    return [];
+  });
+  const [isNotificationOpen, setIsNotificationOpen] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem('dte_waiter_cancellation_alerts', JSON.stringify(cancellationAlerts));
+      } catch (e) {
+        console.error(e);
+      }
+    }
+  }, [cancellationAlerts]);
 
   // Payment states
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'online' | 'credit'>('cash');
@@ -47,9 +94,11 @@ export default function WaiterPortal() {
         const items = Array.isArray(active.items) ? active.items : JSON.parse(active.items || '[]');
         setExistingOrderItems(items);
         setExistingOrderId(active.orderId || active.id);
+        setExistingOrderStatus(active.status);
       } else {
         setExistingOrderItems([]);
         setExistingOrderId(null);
+        setExistingOrderStatus(null);
       }
     } catch (e) {
       console.error(e);
@@ -70,8 +119,10 @@ export default function WaiterPortal() {
     const oRes = await fetch('/api/orders');
     const oData = await oRes.json();
     if (Array.isArray(oData)) {
+      setAllOrders(oData);
       setActiveOrders(oData.filter((o: any) => o.status !== 'Delivered' && o.status !== 'Cancelled'));
     } else {
+      setAllOrders([]);
       setActiveOrders([]);
     }
 
@@ -99,6 +150,184 @@ export default function WaiterPortal() {
     const interval = setInterval(loadInitialData, 3000); // 3 seconds for better real-time feel
     return () => clearInterval(interval);
   }, []);
+
+  // ── Bell and Speech Notifications ──
+  const playBellSound = () => {
+    try {
+      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const osc1 = audioCtx.createOscillator();
+      const gain1 = audioCtx.createGain();
+      osc1.type = 'sine';
+      osc1.frequency.setValueAtTime(880, audioCtx.currentTime); // A5 Note
+      gain1.gain.setValueAtTime(0, audioCtx.currentTime);
+      gain1.gain.linearRampToValueAtTime(0.5, audioCtx.currentTime + 0.05);
+      gain1.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.8);
+      osc1.connect(gain1);
+      gain1.connect(audioCtx.destination);
+      osc1.start();
+      osc1.stop(audioCtx.currentTime + 0.8);
+      
+      setTimeout(() => {
+        const osc2 = audioCtx.createOscillator();
+        const gain2 = audioCtx.createGain();
+        osc2.type = 'sine';
+        osc2.frequency.setValueAtTime(1046.5, audioCtx.currentTime); // C6 Note
+        gain2.gain.setValueAtTime(0, audioCtx.currentTime);
+        gain2.gain.linearRampToValueAtTime(0.5, audioCtx.currentTime + 0.05);
+        gain2.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.8);
+        osc2.connect(gain2);
+        gain2.connect(audioCtx.destination);
+        osc2.start();
+        osc2.stop(audioCtx.currentTime + 0.8);
+      }, 150);
+    } catch (e) {
+      console.error("Audio bell failed to play", e);
+    }
+  };
+
+  const speakAlert = (tableNumber: string) => {
+    try {
+      if ('speechSynthesis' in window) {
+        const utterance = new SpeechSynthesisUtterance(`Table ${tableNumber} order is ready`);
+        utterance.rate = 0.9;
+        utterance.pitch = 1.05;
+        window.speechSynthesis.speak(utterance);
+      }
+    } catch (e) {
+      console.error("Speech synthesis failed", e);
+    }
+  };
+
+  const playErrorSound = () => {
+    try {
+      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const osc1 = audioCtx.createOscillator();
+      const gain1 = audioCtx.createGain();
+      osc1.type = 'sawtooth';
+      osc1.frequency.setValueAtTime(220, audioCtx.currentTime);
+      gain1.gain.setValueAtTime(0, audioCtx.currentTime);
+      gain1.gain.linearRampToValueAtTime(0.4, audioCtx.currentTime + 0.05);
+      gain1.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.6);
+      osc1.connect(gain1);
+      gain1.connect(audioCtx.destination);
+      osc1.start();
+      osc1.stop(audioCtx.currentTime + 0.6);
+
+      setTimeout(() => {
+        const osc2 = audioCtx.createOscillator();
+        const gain2 = audioCtx.createGain();
+        osc2.type = 'sawtooth';
+        osc2.frequency.setValueAtTime(180, audioCtx.currentTime);
+        gain2.gain.setValueAtTime(0, audioCtx.currentTime);
+        gain2.gain.linearRampToValueAtTime(0.4, audioCtx.currentTime + 0.05);
+        gain2.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.6);
+        osc2.connect(gain2);
+        gain2.connect(audioCtx.destination);
+        osc2.start();
+        osc2.stop(audioCtx.currentTime + 0.6);
+      }, 200);
+    } catch (e) {
+      console.error("Audio error bell failed to play", e);
+    }
+  };
+
+
+
+  const playReadyAlert = (tableNumber: string) => {
+    playBellSound();
+    setTimeout(() => {
+      speakAlert(tableNumber);
+    }, 450);
+  };
+
+  useEffect(() => {
+    if (!waiter?.name || allOrders.length === 0) return;
+
+    // Filter ready orders belonging to this waiter
+    const myReadyOrders = allOrders.filter(
+      (o: any) => o.waiter === waiter.name && o.status === 'Ready'
+    );
+
+    myReadyOrders.forEach((order: any) => {
+      const uniqueId = order.orderId || order.id;
+      if (!notifiedReadyOrders.includes(uniqueId)) {
+        playReadyAlert(order.tableNumber || 'N/A');
+        setNotifiedReadyOrders(prev => {
+          const next = [...prev, uniqueId];
+          if (typeof window !== 'undefined') {
+            try {
+              localStorage.setItem('dte_waiter_notified_ready_orders', JSON.stringify(next));
+            } catch (e) {
+              console.error(e);
+            }
+          }
+          return next;
+        });
+      }
+    });
+
+    // Filter cancelled orders belonging to this waiter
+    const myCancelledOrders = allOrders.filter(
+      (o: any) => o.waiter === waiter.name && o.status === 'Cancelled'
+    );
+
+    myCancelledOrders.forEach((order: any) => {
+      const uniqueId = order.orderId || order.id;
+      if (!notifiedCancelledOrders.includes(uniqueId)) {
+        let reason = 'Out of Stock';
+        const inst = order.instructions || '';
+        if (inst.startsWith('[CANCELLED_BY_CHEF:')) {
+          const idx = inst.indexOf(']');
+          if (idx > -1) {
+            reason = inst.substring('[CANCELLED_BY_CHEF:'.length, idx).trim();
+          }
+        }
+        
+        setCancellationAlerts(prev => {
+          if (prev.some(a => a.orderId === uniqueId)) {
+            return prev;
+          }
+          return [
+            ...prev, 
+            { orderId: uniqueId, tableNumber: order.tableNumber, reason }
+          ];
+        });
+
+        playErrorSound();
+
+        setNotifiedCancelledOrders(prev => {
+          const next = [...prev, uniqueId];
+          if (typeof window !== 'undefined') {
+            try {
+              localStorage.setItem('dte_waiter_notified_cancelled_orders', JSON.stringify(next));
+            } catch (e) {
+              console.error(e);
+            }
+          }
+          return next;
+        });
+      }
+    });
+  }, [allOrders, waiter, notifiedReadyOrders, notifiedCancelledOrders]);
+
+  useEffect(() => {
+    if (selectedTable && allOrders.length > 0) {
+      const active = allOrders.find(
+        (o: any) => o.tableNumber == selectedTable.number && o.status !== 'Delivered' && o.status !== 'Cancelled'
+      );
+      if (active) {
+        const items = Array.isArray(active.items) ? active.items : JSON.parse(active.items || '[]');
+        setExistingOrderItems(items);
+        setExistingOrderId(active.orderId || active.id);
+        setExistingOrderStatus(active.status);
+      } else {
+        setExistingOrderItems([]);
+        setExistingOrderId(null);
+        setExistingOrderStatus(null);
+      }
+    }
+  }, [allOrders, selectedTable]);
+
 
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -426,6 +655,78 @@ export default function WaiterPortal() {
                   Live Tracking
                 </p>
               </div>
+
+              {/* Chef Cancellation Notification Dropdown */}
+              <div className="relative">
+                <button
+                  onClick={() => setIsNotificationOpen(!isNotificationOpen)}
+                  className={`relative p-2.5 rounded-xl border transition-all flex items-center justify-center active:scale-95 ${
+                    cancellationAlerts.length > 0 
+                      ? 'bg-red-50 border-red-200 text-red-500 hover:bg-red-100 shadow-sm shadow-red-100/50 animate-pulse' 
+                      : 'bg-slate-100 border-slate-200 text-slate-400 hover:bg-slate-200'
+                  }`}
+                  title="Chef Rejection Notifications"
+                >
+                  <Bell size={18} />
+                  {cancellationAlerts.length > 0 && (
+                    <span className="absolute -top-1.5 -right-1.5 bg-red-600 border-2 border-white text-white text-[8px] font-black rounded-full w-5 h-5 flex items-center justify-center shadow-soft">
+                      {cancellationAlerts.length}
+                    </span>
+                  )}
+                </button>
+
+                {isNotificationOpen && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setIsNotificationOpen(false)} />
+                    <div className="absolute right-0 mt-3 w-80 bg-white border border-slate-200 rounded-[2rem] shadow-2xl p-5 z-50 animate-fade-in max-h-96 overflow-y-auto">
+                      <div className="flex justify-between items-center pb-3 border-b border-slate-100 mb-3">
+                        <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
+                          <AlertTriangle size={14} className="text-red-500" /> Chef Rejections
+                        </h3>
+                        {cancellationAlerts.length > 0 && (
+                          <button
+                            onClick={() => {
+                              setCancellationAlerts([]);
+                              setIsNotificationOpen(false);
+                            }}
+                            className="text-[9px] font-bold text-red-500 hover:underline uppercase"
+                          >
+                            Clear All
+                          </button>
+                        )}
+                      </div>
+                      <div className="space-y-2.5">
+                        {cancellationAlerts.length === 0 ? (
+                          <div className="py-6 text-center text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                            No cancellation notifications
+                          </div>
+                        ) : (
+                          cancellationAlerts.map((alert, idx) => (
+                            <div key={idx} className="bg-red-50/50 border border-red-100 p-3.5 rounded-2xl flex flex-col gap-2 relative group text-left">
+                              <div className="text-[10px] font-bold text-slate-800 uppercase tracking-wide">
+                                Order {alert.orderId} {alert.tableNumber ? `(Table ${alert.tableNumber})` : ''}
+                              </div>
+                              <div className="text-[10px] font-medium text-red-600 leading-tight">
+                                Cancelled by Chef: "{alert.reason}"
+                              </div>
+                              <button
+                                onClick={() => {
+                                  setCancellationAlerts(prev => prev.filter((_, i) => i !== idx));
+                                  if (cancellationAlerts.length <= 1) setIsNotificationOpen(false);
+                                }}
+                                className="absolute top-3 right-3 text-[9px] font-bold text-gray-400 hover:text-red-500 uppercase"
+                              >
+                                Dismiss
+                              </button>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+
               <button
                 onClick={() => { localStorage.removeItem('dte_waiter_session'); setIsLoggedIn(false); }}
                 className="p-2.5 md:p-3 bg-slate-100 hover:bg-red-50 text-slate-400 hover:text-brand-red rounded-xl transition-all border border-slate-200 group"
@@ -816,55 +1117,160 @@ export default function WaiterPortal() {
               <div className="flex-1 flex flex-col h-full animate-fade-in relative z-10">
                 {step === 'tables' && (
                   <div className="space-y-12 max-w-6xl mx-auto w-full pt-4">
-                    <div className="flex justify-between items-end">
+                    <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 pb-2 border-b border-slate-100">
                       <div>
-                        <h1 className="text-5xl font-bold text-slate-800 tracking-tighter uppercase leading-none">Floor Map</h1>
+                        <div className="flex items-center gap-4 bg-slate-100 p-1.5 rounded-[2rem] border border-slate-200 shadow-inner w-max">
+                          <button
+                            onClick={() => setWaiterTab('floor')}
+                            className={`px-6 py-2.5 rounded-full font-bold text-[10px] uppercase tracking-widest transition-all ${waiterTab === 'floor' ? 'bg-white text-slate-800 shadow-md scale-105' : 'text-slate-400 hover:text-slate-600'}`}
+                          >
+                            Floor Map
+                          </button>
+                          <button
+                            onClick={() => setWaiterTab('history')}
+                            className={`px-6 py-2.5 rounded-full font-bold text-[10px] uppercase tracking-widest transition-all ${waiterTab === 'history' ? 'bg-white text-slate-800 shadow-md scale-105' : 'text-slate-400 hover:text-slate-600'}`}
+                          >
+                            My History & Stats
+                          </button>
+                        </div>
                         <div className="text-slate-400 font-bold text-xs uppercase tracking-[0.4em] mt-4 flex items-center gap-2">
-                          Restaurant Intelligence System <div className="w-8 h-[1px] bg-slate-200"></div>
+                          {waiterTab === 'floor' ? 'Restaurant Intelligence System' : 'Your Performance Overview'} <div className="w-8 h-[1px] bg-slate-200"></div>
                         </div>
                       </div>
-                      <div className="flex gap-4">
-                        <div className="bg-white border border-slate-200 rounded-2xl px-6 py-3 flex items-center gap-4 shadow-sm group hover:border-brand-red transition-all">
-                          <div className="w-3 h-3 rounded-full bg-slate-200 border-2 border-white group-hover:bg-brand-red transition-colors"></div>
-                          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Available Seats</span>
+                      
+                      {waiterTab === 'floor' && (
+                        <div className="flex gap-4">
+                          <div className="bg-white border border-slate-200 rounded-2xl px-6 py-3 flex items-center gap-4 shadow-sm group hover:border-brand-red transition-all">
+                            <div className="w-3 h-3 rounded-full bg-slate-200 border-2 border-white group-hover:bg-brand-red transition-colors"></div>
+                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Available Seats</span>
+                          </div>
+                          <div className="bg-white border border-slate-200 rounded-2xl px-6 py-3 flex items-center gap-4 shadow-sm group hover:border-orange-500 transition-all">
+                            <div className="w-3 h-3 rounded-full bg-orange-500 border-2 border-white animate-pulse"></div>
+                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Live Sessions</span>
+                          </div>
                         </div>
-                        <div className="bg-white border border-slate-200 rounded-2xl px-6 py-3 flex items-center gap-4 shadow-sm group hover:border-orange-500 transition-all">
-                          <div className="w-3 h-3 rounded-full bg-orange-500 border-2 border-white animate-pulse"></div>
-                          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Live Sessions</span>
-                        </div>
-                      </div>
+                      )}
                     </div>
 
-                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6 md:gap-8">
-                      {tables.map((t, idx) => {
-                        const isOccupied = activeOrders.some((o: any) => o.tableNumber == t.number);
-                        return (
-                          <button
-                            key={t.id}
-                            onClick={() => handleTableSelect(t)}
-                            style={{ animationDelay: `${idx * 50}ms` }}
-                            className={`relative bg-white aspect-square rounded-[2rem] md:rounded-[3.5rem] border-2 transition-all p-4 md:p-10 flex flex-col items-center justify-center gap-3 md:gap-5 shadow-sm group animate-slide-up ${isOccupied
-                              ? 'border-orange-500 ring-4 md:ring-8 ring-orange-500/5 shadow-orange-500/10'
-                              : 'border-transparent hover:border-brand-red hover:shadow-2xl hover:shadow-brand-red/10'
-                              }`}
-                          >
-                            {isOccupied && (
-                              <div className="absolute top-4 right-4 md:top-8 md:right-8">
-                                <div className="bg-orange-500 text-white text-[7px] md:text-[8px] font-bold px-2 md:px-3 py-0.5 md:py-1 rounded-full uppercase tracking-widest shadow-lg shadow-orange-500/30">Busy</div>
+                    {waiterTab === 'floor' ? (
+                      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6 md:gap-8">
+                        {tables.map((t, idx) => {
+                          const isOccupied = activeOrders.some((o: any) => o.tableNumber == t.number);
+                          return (
+                            <button
+                              key={t.id}
+                              onClick={() => handleTableSelect(t)}
+                              style={{ animationDelay: `${idx * 50}ms` }}
+                              className={`relative bg-white aspect-square rounded-[2rem] md:rounded-[3.5rem] border-2 transition-all p-4 md:p-10 flex flex-col items-center justify-center gap-3 md:gap-5 shadow-sm group animate-slide-up ${isOccupied
+                                ? 'border-orange-500 ring-4 md:ring-8 ring-orange-500/5 shadow-orange-500/10'
+                                : 'border-transparent hover:border-brand-red hover:shadow-2xl hover:shadow-brand-red/10'
+                                }`}
+                            >
+                              {isOccupied && (
+                                <div className="absolute top-4 right-4 md:top-8 md:right-8">
+                                  <div className="bg-orange-500 text-white text-[7px] md:text-[8px] font-bold px-2 md:px-3 py-0.5 md:py-1 rounded-full uppercase tracking-widest shadow-lg shadow-orange-500/30">Busy</div>
+                                </div>
+                              )}
+                              <div className={`p-4 md:p-6 rounded-xl md:rounded-[2rem] transition-all transform group-hover:scale-110 group-hover:rotate-6 ${isOccupied ? 'bg-orange-50 text-orange-500' : 'bg-slate-50 text-slate-300 group-hover:bg-brand-red group-hover:text-white'
+                                }`}>
+                                <Utensils size={24} className="md:w-[32px] md:h-[32px]" />
                               </div>
-                            )}
-                            <div className={`p-4 md:p-6 rounded-xl md:rounded-[2rem] transition-all transform group-hover:scale-110 group-hover:rotate-6 ${isOccupied ? 'bg-orange-50 text-orange-500' : 'bg-slate-50 text-slate-300 group-hover:bg-brand-red group-hover:text-white'
-                              }`}>
-                              <Utensils size={24} className="md:w-[32px] md:h-[32px]" />
-                            </div>
-                            <div className="text-center">
-                              <p className={`font-bold text-xl md:text-3xl tracking-tighter ${isOccupied ? 'text-orange-600' : 'text-slate-800'}`}>T-{t.number}</p>
-                              <span className="text-[8px] md:text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">{t.seats} SEATS</span>
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
+                              <div className="text-center">
+                                <p className={`font-bold text-xl md:text-3xl tracking-tighter ${isOccupied ? 'text-orange-600' : 'text-slate-800'}`}>T-{t.number}</p>
+                                <span className="text-[8px] md:text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">{t.seats} SEATS</span>
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div className="space-y-8 animate-fade-in">
+                        {/* Stats Row */}
+                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+                          <div className="bg-white border border-slate-200 rounded-[2rem] p-6 shadow-sm flex flex-col justify-center">
+                            <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400 mb-1">Total Placed</p>
+                            <p className="text-3xl font-black text-slate-800">{allOrders.filter((o: any) => o.waiter === waiter?.name).length}</p>
+                          </div>
+                          <div className="bg-white border border-slate-200 rounded-[2rem] p-6 shadow-sm flex flex-col justify-center">
+                            <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400 mb-1">Active Dues</p>
+                            <p className="text-3xl font-black text-orange-500">
+                              {allOrders.filter((o: any) => o.waiter === waiter?.name && o.status !== 'Delivered' && o.status !== 'Cancelled').length}
+                            </p>
+                          </div>
+                          <div className="bg-white border border-slate-200 rounded-[2rem] p-6 shadow-sm flex flex-col justify-center">
+                            <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400 mb-1">Completed</p>
+                            <p className="text-3xl font-black text-green-600">
+                              {allOrders.filter((o: any) => o.waiter === waiter?.name && o.status === 'Delivered').length}
+                            </p>
+                          </div>
+                          <div className="bg-white border border-slate-200 rounded-[2rem] p-6 shadow-sm flex flex-col justify-center">
+                            <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400 mb-1">Total Sales</p>
+                            <p className="text-3xl font-black text-brand-red">
+                              ₹{allOrders.filter((o: any) => o.waiter === waiter?.name && o.status === 'Delivered').reduce((sum, o) => sum + o.total, 0).toFixed(0)}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* History Table */}
+                        <div className="bg-white border border-slate-200 rounded-[2.5rem] shadow-sm overflow-hidden">
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-left border-collapse">
+                              <thead>
+                                <tr className="bg-slate-50 border-b border-slate-100 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                                  <th className="py-5 px-8">Order ID</th>
+                                  <th className="py-5 px-6">Table</th>
+                                  <th className="py-5 px-6">Date & Time</th>
+                                  <th className="py-5 px-6">Items Served</th>
+                                  <th className="py-5 px-6 text-right">Amount</th>
+                                  <th className="py-5 px-8 text-center">Status</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-slate-50">
+                                {allOrders.filter((o: any) => o.waiter === waiter?.name).length === 0 ? (
+                                  <tr>
+                                    <td colSpan={6} className="py-16 text-center text-slate-400 font-bold uppercase tracking-wider text-xs">
+                                      No orders recorded under your name yet.
+                                    </td>
+                                  </tr>
+                                ) : (
+                                  allOrders.filter((o: any) => o.waiter === waiter?.name).map((order) => (
+                                    <tr key={order.orderId || order.id} className="hover:bg-slate-50/50 transition-colors">
+                                      <td className="py-5 px-8 font-black text-sm text-slate-800">{order.orderId || order.id}</td>
+                                      <td className="py-5 px-6">
+                                        <span className="font-bold text-xs bg-slate-100 px-3 py-1.5 rounded-xl text-slate-600">Table {order.tableNumber || 'N/A'}</span>
+                                      </td>
+                                      <td className="py-5 px-6 text-xs font-semibold text-slate-500">
+                                        {order.order_date} at {order.order_time || new Date(order.timestamp).toLocaleTimeString()}
+                                      </td>
+                                      <td className="py-5 px-6">
+                                        <div className="max-w-[250px] space-y-0.5 max-h-[60px] overflow-y-auto pr-1">
+                                          {(Array.isArray(order.items) ? order.items : []).map((it: any, i: number) => (
+                                            <div key={i} className="text-xs text-slate-600 font-medium">
+                                              <span className="font-bold text-brand-red">{it.quantity}x</span> {it.name}
+                                            </div>
+                                          ))}
+                                        </div>
+                                      </td>
+                                      <td className="py-5 px-6 text-right font-black text-slate-800 text-sm">₹{order.total}</td>
+                                      <td className="py-5 px-8 text-center">
+                                        <span className={`inline-block px-3 py-1 rounded-full text-[9px] font-bold uppercase tracking-widest border ${
+                                          order.status === 'Delivered' ? 'bg-green-50 text-green-600 border-green-100' :
+                                          order.status === 'Cancelled' ? 'bg-red-50 text-red-600 border-red-100' :
+                                          order.status === 'Ready' ? 'bg-emerald-50 text-emerald-600 border-emerald-100 animate-pulse' :
+                                          'bg-orange-50 text-orange-500 border-orange-100 animate-pulse'
+                                        }`}>
+                                          {order.status}
+                                        </span>
+                                      </td>
+                                    </tr>
+                                  ))
+                                )}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -965,8 +1371,19 @@ export default function WaiterPortal() {
                                   {existingOrderItems.map((item, i) => (
                                     <div key={i} className="group/item flex justify-between items-center gap-5 bg-slate-50 p-3 px-4 rounded-[1.5rem] border border-slate-100/60 shadow-[inset_0_2px_4px_rgba(0,0,0,0.02)] transition-all">
                                       <div className="flex-1 min-w-0 flex items-center gap-3">
-                                        <div className="w-1.5 h-1.5 rounded-full bg-slate-300"></div>
-                                        <h4 className="font-bold text-[10px] text-slate-500 uppercase truncate">{item.name}</h4>
+                                        <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
+                                          item.status === 'ready' ? 'bg-green-500' :
+                                          item.status === 'preparing' ? 'bg-orange-500 animate-pulse' : 'bg-slate-300'
+                                        }`}></div>
+                                        <div>
+                                          <h4 className="font-bold text-[10px] text-slate-700 uppercase truncate leading-none mb-1">{item.name}</h4>
+                                          <span className={`text-[8px] font-bold uppercase tracking-widest leading-none ${
+                                            item.status === 'ready' ? 'text-green-600' :
+                                            item.status === 'preparing' ? 'text-orange-500' : 'text-slate-400'
+                                          }`}>
+                                            {item.status || 'Pending'}
+                                          </span>
+                                        </div>
                                       </div>
 
                                       <div className="flex items-center gap-4">
@@ -1155,6 +1572,10 @@ export default function WaiterPortal() {
 
                               <button
                                 onClick={async () => {
+                                  if (existingOrderStatus && existingOrderStatus !== 'Ready') {
+                                    alert("Chef has not marked the order as READY yet. You can only finalize the bill once it is ready!");
+                                    return;
+                                  }
                                   if (paymentMethod === 'online' && (!accountType || !transactionId)) {
                                     alert("Please enter Account Type and Transaction ID.");
                                     return;
@@ -1214,6 +1635,84 @@ export default function WaiterPortal() {
                                 <ShoppingBag size={16} />
                                 {paymentMethod === 'credit' ? 'Record Credit & Close' : 'Close & Finalize Bill'}
                               </button>
+
+                              {existingOrderId && existingOrderStatus === 'Pending' && (
+                                <button
+                                  type="button"
+                                  onClick={async () => {
+                                    const hasPreparingOrReady = existingOrderItems.some(
+                                      (it: any) => it.status === 'preparing' || it.status === 'ready'
+                                    );
+
+                                    if (hasPreparingOrReady) {
+                                      if (confirm("Some items in this order are already being prepared by the chef. Only the new pending items will be cancelled. Do you want to proceed?")) {
+                                        try {
+                                          setLoading(true);
+                                          const remainingItems = existingOrderItems.filter(
+                                            (it: any) => it.status === 'preparing' || it.status === 'ready'
+                                          );
+                                          const newTotal = remainingItems.reduce((sum: number, it: any) => sum + (it.price * it.quantity), 0);
+                                          const allReady = remainingItems.every((it: any) => it.status === 'ready');
+                                          const newStatus = allReady ? 'Ready' : 'Preparing';
+
+                                          const res = await fetch('/api/orders', {
+                                            method: 'PATCH',
+                                            headers: { 'Content-Type': 'application/json' },
+                                            body: JSON.stringify({
+                                              id: existingOrderId,
+                                              updates: {
+                                                items: JSON.stringify(remainingItems),
+                                                total: newTotal,
+                                                status: newStatus
+                                              }
+                                            })
+                                          });
+                                          if (res.ok) {
+                                            alert("Pending items cancelled successfully!");
+                                            setStep('tables');
+                                            setShowCart(false);
+                                          } else {
+                                            alert("Failed to cancel pending items.");
+                                          }
+                                        } catch (err) {
+                                          alert("Error cancelling items.");
+                                        } finally {
+                                          setLoading(false);
+                                        }
+                                      }
+                                    } else {
+                                      if (confirm("Are you sure you want to cancel this order? This cannot be undone.")) {
+                                        try {
+                                          setLoading(true);
+                                          const res = await fetch('/api/orders', {
+                                            method: 'PATCH',
+                                            headers: { 'Content-Type': 'application/json' },
+                                            body: JSON.stringify({
+                                              id: existingOrderId,
+                                              updates: { status: 'Cancelled' }
+                                            })
+                                          });
+                                          if (res.ok) {
+                                            alert("Order Cancelled successfully!");
+                                            setStep('tables');
+                                            setShowCart(false);
+                                          } else {
+                                            alert("Failed to cancel order.");
+                                          }
+                                        } catch (err) {
+                                          alert("Error cancelling order.");
+                                        } finally {
+                                          setLoading(false);
+                                        }
+                                      }
+                                    }
+                                  }}
+                                  disabled={loading}
+                                  className="w-full bg-red-50 hover:bg-red-100 text-red-600 font-bold py-3.5 rounded-2xl border border-red-200 tracking-widest uppercase text-[10px] flex items-center justify-center gap-3 transition-all mt-2"
+                                >
+                                  <X size={16} /> Cancel Order
+                                </button>
+                              )}
 
                               {(existingOrderItems.length > 0 || cart.length > 0) && (
                                 <button

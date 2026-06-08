@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { Search, ShoppingBag, Filter, X, Trash2, Edit2, CheckCircle, Clock, Eye, Info, Calendar, Plus, Minus, Utensils } from 'lucide-react';
+import { Search, ShoppingBag, Filter, X, Trash2, Edit2, CheckCircle, Clock, Eye, Info, Calendar, Plus, Minus, Utensils, AlertTriangle, Bell } from 'lucide-react';
 import { resolveMenuImage } from '@/lib/image-helper';
 
 export default function OrdersPage() {
@@ -22,6 +22,40 @@ export default function OrdersPage() {
   const [menuSearch, setMenuSearch] = useState('');
   const [cart, setCart] = useState<any[]>([]);
   const [placingOrder, setPlacingOrder] = useState(false);
+
+  const [notifiedCancelledOrders, setNotifiedCancelledOrders] = useState<string[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('dte_notified_cancelled_orders');
+        return saved ? JSON.parse(saved) : [];
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    return [];
+  });
+  const [cancellationAlerts, setCancellationAlerts] = useState<{orderId: string, tableNumber: string | null, reason: string}[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('dte_cancellation_alerts');
+        return saved ? JSON.parse(saved) : [];
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    return [];
+  });
+  const [isNotificationOpen, setIsNotificationOpen] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem('dte_cancellation_alerts', JSON.stringify(cancellationAlerts));
+      } catch (e) {
+        console.error(e);
+      }
+    }
+  }, [cancellationAlerts]);
 
   // Form states for new order
   const [newOrderCustomerName, setNewOrderCustomerName] = useState('');
@@ -51,6 +85,46 @@ export default function OrdersPage() {
             setLastOrderId(latestId);
           }
           setOrders(data);
+
+          // Check for newly chef-cancelled orders
+          data.filter((o: any) => o.status === 'Cancelled' && o.instructions?.startsWith('[CANCELLED_BY_CHEF:')).forEach((order: any) => {
+            const uniqueId = order.orderId || order.id;
+            setNotifiedCancelledOrders(prevNotified => {
+              if (!prevNotified.includes(uniqueId)) {
+                let reason = 'Out of Stock';
+                const inst = order.instructions || '';
+                const idx = inst.indexOf(']');
+                if (idx > -1) {
+                  reason = inst.substring('[CANCELLED_BY_CHEF:'.length, idx).trim();
+                }
+
+                // Add to cancellationAlerts with duplicate checking
+                setCancellationAlerts(prevAlerts => {
+                  if (prevAlerts.some(a => a.orderId === uniqueId)) {
+                    return prevAlerts;
+                  }
+                  return [
+                    ...prevAlerts,
+                    { orderId: uniqueId, tableNumber: order.tableNumber, reason }
+                  ];
+                });
+
+                // Play notification bell audio
+                notificationSound.play().catch(e => console.log('Audio blocked:', e));
+
+                const next = [...prevNotified, uniqueId];
+                if (typeof window !== 'undefined') {
+                  try {
+                    localStorage.setItem('dte_notified_cancelled_orders', JSON.stringify(next));
+                  } catch (e) {
+                    console.error(e);
+                  }
+                }
+                return next;
+              }
+              return prevNotified;
+            });
+          });
         }
       })
       .catch(err => console.error("Fetch failed", err));
@@ -257,6 +331,77 @@ export default function OrdersPage() {
         </div>
         
         <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto">
+          {/* Chef Cancellation Notification Dropdown */}
+          <div className="relative">
+            <button
+              onClick={() => setIsNotificationOpen(!isNotificationOpen)}
+              className={`relative p-2.5 rounded-xl border transition-all flex items-center justify-center active:scale-95 ${
+                cancellationAlerts.length > 0 
+                  ? 'bg-red-50 border-red-200 text-red-500 hover:bg-red-100 shadow-sm shadow-red-100/50 animate-pulse' 
+                  : 'bg-gray-50 border-gray-200 text-gray-400 hover:bg-gray-100'
+              }`}
+              title="Chef Rejection Notifications"
+            >
+              <Bell size={18} />
+              {cancellationAlerts.length > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 bg-red-600 border-2 border-white text-white text-[8px] font-black rounded-full w-5 h-5 flex items-center justify-center shadow-soft">
+                  {cancellationAlerts.length}
+                </span>
+              )}
+            </button>
+
+            {isNotificationOpen && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setIsNotificationOpen(false)} />
+                <div className="absolute right-0 mt-3 w-80 bg-white border border-gray-100 rounded-[2rem] shadow-2xl p-5 z-50 animate-fade-in max-h-96 overflow-y-auto">
+                  <div className="flex justify-between items-center pb-3 border-b border-gray-100 mb-3">
+                    <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest flex items-center gap-1.5">
+                      <AlertTriangle size={14} className="text-red-500" /> Chef Rejections
+                    </h3>
+                    {cancellationAlerts.length > 0 && (
+                      <button
+                        onClick={() => {
+                          setCancellationAlerts([]);
+                          setIsNotificationOpen(false);
+                        }}
+                        className="text-[9px] font-bold text-red-500 hover:underline uppercase"
+                      >
+                        Clear All
+                      </button>
+                    )}
+                  </div>
+                  <div className="space-y-2.5">
+                    {cancellationAlerts.length === 0 ? (
+                      <div className="py-6 text-center text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+                        No cancellation notifications
+                      </div>
+                    ) : (
+                      cancellationAlerts.map((alert, idx) => (
+                        <div key={idx} className="bg-red-50/50 border border-red-100 p-3.5 rounded-2xl flex flex-col gap-2 relative group text-left">
+                          <div className="text-[10px] font-bold text-slate-800 uppercase tracking-wide">
+                            Order {alert.orderId} {alert.tableNumber ? `(Table ${alert.tableNumber})` : ''}
+                          </div>
+                          <div className="text-[10px] font-medium text-red-600 leading-tight">
+                            Cancelled by Chef: "{alert.reason}"
+                          </div>
+                          <button
+                            onClick={() => {
+                              setCancellationAlerts(prev => prev.filter((_, i) => i !== idx));
+                              if (cancellationAlerts.length <= 1) setIsNotificationOpen(false);
+                            }}
+                            className="absolute top-3 right-3 text-[9px] font-bold text-gray-400 hover:text-red-500 uppercase"
+                          >
+                            Dismiss
+                          </button>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+
           {/* Place Order Button */}
           <button
             onClick={() => setIsOrderModalOpen(true)}
