@@ -62,13 +62,22 @@ export async function POST(req: Request) {
 
 export async function PATCH(req: Request) {
   try {
-    const { id, updates } = await req.json();
-    const item = await prisma.menu_item.update({
-      where: { id },
-      data: updates
-    });
-    return NextResponse.json({ success: true, item });
+    const { id, type, updates } = await req.json();
+    if (type === 'category') {
+      const category = await prisma.menu_category.update({
+        where: { id },
+        data: updates
+      });
+      return NextResponse.json({ success: true, category });
+    } else {
+      const item = await prisma.menu_item.update({
+        where: { id },
+        data: updates
+      });
+      return NextResponse.json({ success: true, item });
+    }
   } catch (error: any) {
+    console.error("PATCH update failed:", error);
     return NextResponse.json({ error: 'Update failed', detail: error.message }, { status: 500 });
   }
 }

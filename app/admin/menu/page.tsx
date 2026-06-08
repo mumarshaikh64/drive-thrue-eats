@@ -150,20 +150,49 @@ export default function MenuManagement() {
     setShowAddModal(true);
   };
 
+  const editCategory = (cat: any) => {
+    setEditingId(cat.id);
+    setNewCat({ name: cat.name });
+    setModalType('category');
+    setShowAddModal(true);
+  };
+
   const handleAddCategory = async () => {
+    if (!newCat.name || !newCat.name.trim()) {
+      alert("Please enter a category name.");
+      return;
+    }
     try {
-      const res = await fetch('/api/menu', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'category', payload: newCat })
-      });
-      if (res.ok) {
-        fetchMenu();
-        setShowAddModal(false);
-        setNewCat({ name: '' });
+      if (editingId) {
+        const res = await fetch('/api/menu', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            id: editingId, 
+            type: 'category', 
+            updates: { name: newCat.name } 
+          })
+        });
+        if (res.ok) {
+          fetchMenu();
+          setShowAddModal(false);
+          setEditingId(null);
+          setNewCat({ name: '' });
+        }
+      } else {
+        const res = await fetch('/api/menu', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ type: 'category', payload: newCat })
+        });
+        if (res.ok) {
+          fetchMenu();
+          setShowAddModal(false);
+          setNewCat({ name: '' });
+        }
       }
     } catch (err) {
-      alert('Failed to add category');
+      alert(editingId ? 'Failed to update category' : 'Failed to add category');
     }
   };
 
@@ -214,6 +243,13 @@ export default function MenuManagement() {
                   <h2 className="text-2xl font-bold text-gray-900 uppercase tracking-tight">{cat.name}</h2>
                   <div className="flex-1 h-px bg-gray-200" />
                   <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{cat.items.length} Items</span>
+                   <button 
+                    onClick={() => editCategory(cat)}
+                    className="w-10 h-10 flex items-center justify-center text-gray-300 hover:text-blue-500 hover:bg-blue-50 rounded-xl transition-all"
+                    title="Edit Category"
+                  >
+                    <Edit3 size={18} />
+                  </button>
                   <button 
                     onClick={() => deleteItem(cat.id, 'category')}
                     className="w-10 h-10 flex items-center justify-center text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
@@ -275,9 +311,9 @@ export default function MenuManagement() {
 
         {/* Modal */}
         {showAddModal && (
-          <div className="fixed inset-0 bg-brand-text/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
-            <div className="bg-white w-full max-w-2xl rounded-[3rem] shadow-2xl overflow-hidden animate-slide-up">
-              <div className="bg-brand-red p-8 flex justify-between items-center text-white">
+          <div className="fixed inset-0 bg-brand-text/80 backdrop-blur-md z-[9999] overflow-y-auto flex justify-center p-4 md:p-10">
+            <div className="bg-white w-full max-w-2xl rounded-[3rem] shadow-2xl overflow-hidden animate-slide-up my-auto flex flex-col max-h-[85vh]">
+              <div className="bg-brand-red p-6 flex justify-between items-center text-white flex-shrink-0">
                 <h3 className="text-2xl font-bold uppercase tracking-tight">
                   {modalType === 'item' 
                     ? (editingId ? 'Update Menu Item' : 'Add New Menu Item') 
@@ -288,7 +324,7 @@ export default function MenuManagement() {
                 </button>
               </div>
               
-              <div className="p-8 md:p-12 space-y-8 overflow-y-auto max-h-[80vh]">
+              <div className="p-6 md:p-8 space-y-6 overflow-y-auto flex-1">
                 {modalType === 'item' ? (
                   <div className="space-y-8">
                     {/* Basic Info */}
@@ -428,7 +464,7 @@ export default function MenuManagement() {
                       onClick={handleAddCategory}
                       className="w-full bg-brand-text text-white font-bold py-6 rounded-[2rem] shadow-premium hover:bg-black transition-all uppercase tracking-[0.2em] text-sm mt-4"
                     >
-                      Add Category
+                      {editingId ? 'Update Category' : 'Add Category'}
                     </button>
                   </div>
                 )}

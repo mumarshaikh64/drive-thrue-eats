@@ -995,8 +995,8 @@ export default function CreditReportsPage() {
   const [statementModal, setStatementModal] = useState<Employee | null>(null);
 
   // ── Fetch Detailed Logs ──
-  const fetchReports = useCallback(async () => {
-    setIsLoading(true);
+  const fetchReports = useCallback(async (silent = false) => {
+    if (!silent) setIsLoading(true);
     setErrorMsg('');
     try {
       const queryParams = new URLSearchParams({ search, status, startDate, endDate, page: page.toString(), limit: limit.toString() });
@@ -1013,13 +1013,13 @@ export default function CreditReportsPage() {
     } catch (err: any) {
       setErrorMsg(err.message || 'Something went wrong.');
     } finally {
-      setIsLoading(false);
+      if (!silent) setIsLoading(false);
     }
   }, [search, status, startDate, endDate, page, limit]);
 
   // ── Fetch Balances ──
-  const fetchBalances = useCallback(async () => {
-    setBalancesLoading(true);
+  const fetchBalances = useCallback(async (silent = false) => {
+    if (!silent) setBalancesLoading(true);
     setBalancesError('');
     try {
       const res = await fetch(`/api/admin/credit-reports/balances?search=${encodeURIComponent(balancesSearch)}`);
@@ -1034,22 +1034,22 @@ export default function CreditReportsPage() {
     } catch (err: any) {
       setBalancesError(err.message);
     } finally {
-      setBalancesLoading(false);
+      if (!silent) setBalancesLoading(false);
     }
   }, [balancesSearch]);
 
   useEffect(() => {
     if (activeTab === 'logs') {
-      fetchReports();
-      const interval = setInterval(fetchReports, 10000);
+      fetchReports(false);
+      const interval = setInterval(() => fetchReports(true), 10000);
       return () => clearInterval(interval);
     }
   }, [fetchReports, activeTab]);
 
   useEffect(() => {
     if (activeTab === 'balances') {
-      fetchBalances();
-      const interval = setInterval(fetchBalances, 10000);
+      fetchBalances(false);
+      const interval = setInterval(() => fetchBalances(true), 10000);
       return () => clearInterval(interval);
     }
   }, [fetchBalances, activeTab]);

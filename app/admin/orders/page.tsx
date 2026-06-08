@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { Search, ShoppingBag, Filter, X, Trash2, Edit2, CheckCircle, Clock, Eye, Info, Calendar } from 'lucide-react';
+import { Search, ShoppingBag, Filter, X, Trash2, Edit2, CheckCircle, Clock, Eye, Info, Calendar, Plus, Minus, Utensils } from 'lucide-react';
+import { resolveMenuImage } from '@/lib/image-helper';
 
 export default function OrdersPage() {
   const [orders, setOrders] = useState<any[]>([]);
@@ -13,6 +14,26 @@ export default function OrdersPage() {
   const [editingOrder, setEditingOrder] = useState<any>(null);
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
   const [lastOrderId, setLastOrderId] = useState<string | null>(null);
+
+  // New states for placing order from admin panel
+  const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
+  const [menuCategories, setMenuCategories] = useState<any[]>([]);
+  const [tables, setTables] = useState<any[]>([]);
+  const [menuSearch, setMenuSearch] = useState('');
+  const [cart, setCart] = useState<any[]>([]);
+  const [placingOrder, setPlacingOrder] = useState(false);
+
+  // Form states for new order
+  const [newOrderCustomerName, setNewOrderCustomerName] = useState('');
+  const [newOrderPhone, setNewOrderPhone] = useState('');
+  const [newOrderType, setNewOrderType] = useState<'dining' | 'pickup' | 'delivery'>('dining');
+  const [newOrderTable, setNewOrderTable] = useState('');
+  const [newOrderAddress, setNewOrderAddress] = useState('');
+  const [newOrderInstructions, setNewOrderInstructions] = useState('');
+  const [newOrderPaymentMethod, setNewOrderPaymentMethod] = useState<'cash' | 'online' | 'credit'>('cash');
+  const [newOrderCreditName, setNewOrderCreditName] = useState('');
+  const [newOrderCreditCompany, setNewOrderCreditCompany] = useState('');
+  const [newOrderCreditPhone, setNewOrderCreditPhone] = useState('');
 
   const fetchOrders = () => {
     // Audio Notification Sound (Royalty Free Bell)
@@ -35,12 +56,32 @@ export default function OrdersPage() {
       .catch(err => console.error("Fetch failed", err));
   };
 
+  const fetchMenuAndTables = async () => {
+    try {
+      const mRes = await fetch('/api/menu');
+      const mData = await mRes.json();
+      if (Array.isArray(mData)) setMenuCategories(mData);
+
+      const tRes = await fetch('/api/tables');
+      const tData = await tRes.json();
+      if (Array.isArray(tData)) setTables(tData);
+    } catch (e) {
+      console.error("Failed to load menu or tables", e);
+    }
+  };
+
   useEffect(() => {
     fetchOrders();
     const interval = setInterval(fetchOrders, 10000);
     return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lastOrderId]);
+
+  useEffect(() => {
+    if (isOrderModalOpen) {
+      fetchMenuAndTables();
+    }
+  }, [isOrderModalOpen]);
 
   const filteredOrders = (Array.isArray(orders) ? orders : []).filter(o => {
     const matchesSearch = (o.orderId || o.id || "").toLowerCase().includes(search.toLowerCase()) ||
@@ -107,6 +148,105 @@ export default function OrdersPage() {
     window.open(waUrl, '_blank');
   };
 
+  // Cart operations
+  const handleAddToCart = (item: any) => {
+    const exists = cart.find(c => c.id === item.id);
+    if (exists) {
+      setCart(cart.map(c => c.id === item.id ? { ...c, quantity: c.quantity + 1 } : c));
+    } else {
+      setCart([...cart, { ...item, quantity: 1 }]);
+    }
+  };
+
+  const handleUpdateQty = (id: string, delta: number) => {
+    setCart(cart.map(c => {
+      if (c.id === id) {
+        const newQty = Math.max(0, c.quantity + delta);
+        return { ...c, quantity: newQty };
+      }
+      return c;
+    }).filter(c => c.quantity > 0));
+  };
+
+  const handlePlaceOrderSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (cart.length === 0) {
+      alert("Please add at least one item to the cart.");
+      return;
+    }
+
+    if (newOrderType === 'dining' && !newOrderTable) {
+      alert("Please select a table number.");
+      return;
+    }
+
+    if (newOrderType === 'delivery' && !newOrderAddress) {
+      alert("Please enter a delivery address.");
+      return;
+    }
+
+    setPlacingOrder(true);
+    try {
+      const orderData: any = {
+        customerName: newOrderCustomerName || (newOrderType === 'dining' ? `Table ${newOrderTable} Guest` : 'Admin Guest'),
+        phone: newOrderPhone || 'N/A',
+        type: newOrderType,
+        tableNumber: newOrderType === 'dining' ? String(newOrderTable) : null,
+        address: newOrderType === 'delivery' ? newOrderAddress : null,
+        instructions: newOrderInstructions || null,
+        items: cart.map(it => ({
+          id: it.id,
+          name: it.name,
+          price: it.price,
+          quantity: it.quantity,
+          categoryName: it.categoryName,
+          status: 'pending'
+        })),
+        total: cart.reduce((sum, it) => sum + (it.price * it.quantity), 0),
+        paymentMethod: newOrderPaymentMethod === 'credit' ? 'Credit' : newOrderPaymentMethod === 'online' ? 'Online' : 'Cash',
+        payment_type: newOrderPaymentMethod,
+        status: 'Pending',
+        waiter: 'Admin',
+        ...(newOrderPaymentMethod === 'credit' && {
+          credit_customer_name: newOrderCreditName,
+          credit_company_name: newOrderCreditCompany,
+          credit_phone: newOrderCreditPhone,
+          credit_status: 'pending',
+        })
+      };
+
+      const res = await fetch('/api/orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(orderData)
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        alert("Order placed successfully!");
+        setIsOrderModalOpen(false);
+        // Reset states
+        setCart([]);
+        setNewOrderCustomerName('');
+        setNewOrderPhone('');
+        setNewOrderTable('');
+        setNewOrderAddress('');
+        setNewOrderInstructions('');
+        setNewOrderPaymentMethod('cash');
+        setNewOrderCreditName('');
+        setNewOrderCreditCompany('');
+        setNewOrderCreditPhone('');
+        fetchOrders();
+      } else {
+        alert(data.error || "Failed to place order");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Something went wrong placing the order.");
+    } finally {
+      setPlacingOrder(false);
+    }
+  };
+
   return (
     <>
     <div className="max-w-7xl mx-auto space-y-6">
@@ -117,6 +257,15 @@ export default function OrdersPage() {
         </div>
         
         <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto">
+          {/* Place Order Button */}
+          <button
+            onClick={() => setIsOrderModalOpen(true)}
+            className="flex items-center gap-2 px-5 py-2.5 bg-brand-red hover:bg-[#c52c31] text-white rounded-xl text-sm font-bold shadow-md hover:shadow-lg transition-all active:scale-95"
+          >
+            <Plus size={16} />
+            <span>Place New Order</span>
+          </button>
+
           {/* Search */}
           <div className="relative flex-grow sm:flex-grow-0">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
@@ -424,10 +573,331 @@ export default function OrdersPage() {
               </button>
               <button 
                 onClick={() => setSelectedOrder(null)}
-                className="btn-primary py-3 px-8 text-sm"
+                className="bg-gray-200 hover:bg-gray-300 text-gray-700 py-3 px-8 text-sm font-bold rounded-xl transition-all"
               >
                 Close Details
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Admin Place Order Modal */}
+      {isOrderModalOpen && (
+        <div className="fixed inset-0 bg-black/60 z-[200] flex items-center justify-center p-4 backdrop-blur-sm overflow-y-auto">
+          <div className="bg-white rounded-[2rem] w-full max-w-6xl h-[90vh] shadow-premium relative flex flex-col my-auto overflow-hidden">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-gray-100 p-6 flex-shrink-0">
+              <div className="flex flex-col">
+                <h2 className="text-2xl font-bold flex items-center gap-2 text-gray-900">
+                  <Utensils className="text-brand-red" /> Place New Order (Admin)
+                </h2>
+                <span className="text-gray-400 font-bold text-xs uppercase tracking-widest mt-1">Create an order on behalf of a guest</span>
+              </div>
+              <button 
+                onClick={() => setIsOrderModalOpen(false)} 
+                className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center hover:bg-red-50 hover:text-red-500 transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Modal Content - Two Columns */}
+            <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
+              {/* Left Column: Menu Items & Search */}
+              <div className="w-full lg:w-3/5 p-6 border-r border-gray-100 flex flex-col overflow-hidden">
+                <div className="mb-4 relative flex-shrink-0">
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                  <input
+                    type="text"
+                    placeholder="Search menu items..."
+                    value={menuSearch}
+                    onChange={e => setMenuSearch(e.target.value)}
+                    className="w-full pl-11 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl text-sm focus:ring-2 focus:ring-brand-red outline-none"
+                  />
+                </div>
+
+                {/* Categorized list of items */}
+                <div className="flex-1 overflow-y-auto pr-2 space-y-6 scrollbar-custom">
+                  {menuCategories.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-20 text-gray-400 font-bold">
+                      <Clock className="animate-spin mb-3 text-brand-red" size={32} />
+                      <span>Loading menu items...</span>
+                    </div>
+                  ) : (
+                    menuCategories.map((cat: any) => {
+                      const filteredItems = (cat.items || []).filter((it: any) =>
+                        it.name.toLowerCase().includes(menuSearch.toLowerCase())
+                      );
+                      if (filteredItems.length === 0) return null;
+
+                      return (
+                        <div key={cat.id} className="space-y-3">
+                          <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2">
+                            <span>{cat.name}</span>
+                            <span className="h-px bg-gray-100 flex-1"></span>
+                          </h3>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            {filteredItems.map((it: any) => (
+                              <div 
+                                key={it.id} 
+                                className="bg-gray-50 p-3 rounded-2xl border border-gray-100 flex items-center justify-between hover:shadow-md transition-all group"
+                              >
+                                <div className="flex items-center gap-3">
+                                  <div className="w-12 h-12 rounded-xl overflow-hidden bg-gray-100 relative shadow-inner">
+                                    <img 
+                                      src={resolveMenuImage(it.image)} 
+                                      alt={it.name} 
+                                      className="w-full h-full object-cover"
+                                    />
+                                  </div>
+                                  <div>
+                                    <h4 className="text-xs font-bold text-gray-800 uppercase line-clamp-1">{it.name}</h4>
+                                    <p className="text-xs font-bold text-brand-red mt-0.5">₹{it.price}</p>
+                                  </div>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => handleAddToCart(it)}
+                                  className="w-8 h-8 rounded-xl bg-white text-gray-400 hover:bg-brand-red hover:text-white hover:rotate-90 shadow-sm transition-all flex items-center justify-center flex-shrink-0"
+                                >
+                                  <Plus size={16} />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+
+              {/* Right Column: Order Form & Cart */}
+              <form onSubmit={handlePlaceOrderSubmit} className="w-full lg:w-2/5 p-6 bg-gray-50 flex flex-col overflow-hidden">
+                <div className="flex-1 overflow-y-auto space-y-6 pr-2 scrollbar-custom">
+                  {/* Order Type Toggle */}
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block">Order Type *</label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {(['dining', 'pickup', 'delivery'] as const).map(type => (
+                        <button
+                          key={type}
+                          type="button"
+                          onClick={() => setNewOrderType(type)}
+                          className={`py-2.5 rounded-xl font-bold text-xs uppercase transition-all border ${
+                            newOrderType === type 
+                              ? 'bg-slate-900 text-white border-slate-900 shadow-md' 
+                              : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-100'
+                          }`}
+                        >
+                          {type}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Dynamic Fields based on Type */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block">Customer Name</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. John Doe"
+                        value={newOrderCustomerName}
+                        onChange={e => setNewOrderCustomerName(e.target.value)}
+                        className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-brand-red outline-none"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block">Phone Number</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. 03001234567"
+                        maxLength={11}
+                        value={newOrderPhone}
+                        onChange={e => setNewOrderPhone(e.target.value.replace(/\D/g, ''))}
+                        className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-brand-red outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  {newOrderType === 'dining' && (
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block">Table Number *</label>
+                      <select
+                        value={newOrderTable}
+                        onChange={e => setNewOrderTable(e.target.value)}
+                        className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-brand-red outline-none font-bold"
+                      >
+                        <option value="">Select Table...</option>
+                        {tables.map((t: any) => (
+                          <option key={t.id} value={t.number}>Table {t.number} ({t.seats} Seats - {t.status})</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  {newOrderType === 'delivery' && (
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block">Delivery Address *</label>
+                      <textarea
+                        rows={2}
+                        placeholder="Enter full address details..."
+                        value={newOrderAddress}
+                        onChange={e => setNewOrderAddress(e.target.value)}
+                        className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-brand-red outline-none"
+                      />
+                    </div>
+                  )}
+
+                  {/* Payment Method Toggle */}
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block">Payment Method *</label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {(['cash', 'online', 'credit'] as const).map(pm => (
+                        <button
+                          key={pm}
+                          type="button"
+                          onClick={() => setNewOrderPaymentMethod(pm)}
+                          className={`py-2.5 rounded-xl font-bold text-[10px] uppercase transition-all border ${
+                            newOrderPaymentMethod === pm 
+                              ? 'bg-slate-900 text-white border-slate-900 shadow-md' 
+                              : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-100'
+                          }`}
+                        >
+                          {pm}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {newOrderPaymentMethod === 'credit' && (
+                    <div className="p-4 bg-orange-50 border border-orange-100 rounded-2xl space-y-3">
+                      <h4 className="text-[10px] font-bold text-orange-600 uppercase tracking-widest">Credit Account Details</h4>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <input
+                          type="text"
+                          placeholder="Credit User Name *"
+                          value={newOrderCreditName}
+                          onChange={e => setNewOrderCreditName(e.target.value)}
+                          className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-xs outline-none"
+                          required
+                        />
+                        <input
+                          type="text"
+                          placeholder="Company Name"
+                          value={newOrderCreditCompany}
+                          onChange={e => setNewOrderCreditCompany(e.target.value)}
+                          className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-xs outline-none"
+                        />
+                      </div>
+                      <input
+                        type="text"
+                        placeholder="Credit Phone Number *"
+                        maxLength={11}
+                        value={newOrderCreditPhone}
+                        onChange={e => setNewOrderCreditPhone(e.target.value.replace(/\D/g, ''))}
+                        className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-xs outline-none"
+                        required
+                      />
+                    </div>
+                  )}
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block">Cooking / Order Instructions</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Extra spicy, no onions"
+                      value={newOrderInstructions}
+                      onChange={e => setNewOrderInstructions(e.target.value)}
+                      className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-brand-red outline-none"
+                    />
+                  </div>
+
+                  {/* Cart Section */}
+                  <div className="space-y-3 pt-2">
+                    <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex items-center justify-between">
+                      <span>Order Items ({cart.reduce((sum, c) => sum + c.quantity, 0)})</span>
+                      {cart.length > 0 && (
+                        <button 
+                          type="button" 
+                          onClick={() => setCart([])} 
+                          className="text-red-500 font-bold hover:underline capitalize"
+                        >
+                          Clear all
+                        </button>
+                      )}
+                    </h4>
+
+                    {cart.length === 0 ? (
+                      <div className="p-8 text-center bg-white border border-gray-200 rounded-2xl text-gray-400 font-bold text-xs uppercase tracking-wider">
+                        Cart is empty
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {cart.map(item => (
+                          <div 
+                            key={item.id} 
+                            className="bg-white p-3 rounded-2xl border border-gray-200 flex justify-between items-center shadow-sm"
+                          >
+                            <div className="min-w-0 flex-1">
+                              <h5 className="text-xs font-bold text-gray-800 uppercase truncate">{item.name}</h5>
+                              <p className="text-[10px] font-bold text-brand-red mt-0.5">₹{item.price * item.quantity}</p>
+                            </div>
+                            <div className="flex items-center gap-2 bg-gray-50 p-1.5 rounded-xl border border-gray-200">
+                              <button
+                                type="button"
+                                onClick={() => handleUpdateQty(item.id, -1)}
+                                className="w-6 h-6 rounded-lg bg-white shadow-sm flex items-center justify-center text-gray-500 hover:text-brand-red"
+                              >
+                                <Minus size={12} />
+                              </button>
+                              <span className="text-xs font-bold w-5 text-center text-gray-800">{item.quantity}</span>
+                              <button
+                                type="button"
+                                onClick={() => handleUpdateQty(item.id, 1)}
+                                className="w-6 h-6 rounded-lg bg-white shadow-sm flex items-center justify-center text-gray-500 hover:text-brand-red"
+                              >
+                                <Plus size={12} />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Subtotal & Action */}
+                <div className="border-t border-gray-200/80 pt-4 mt-4 bg-transparent flex-shrink-0 space-y-4">
+                  <div className="flex justify-between items-center px-2">
+                    <span className="text-sm font-bold text-gray-500 uppercase tracking-widest">Total Amount</span>
+                    <span className="text-2xl font-black text-brand-red">
+                      ₹{cart.reduce((sum, it) => sum + (it.price * it.quantity), 0)}
+                    </span>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={placingOrder || cart.length === 0}
+                    className="w-full py-4 bg-brand-red hover:bg-[#c52c31] disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-bold text-xs uppercase tracking-widest rounded-2xl shadow-lg shadow-brand-red/20 transition-all flex items-center justify-center gap-2"
+                  >
+                    {placingOrder ? (
+                      <>
+                        <Clock className="animate-spin" size={16} />
+                        <span>Placing Order...</span>
+                      </>
+                    ) : (
+                      <>
+                        <ShoppingBag size={16} />
+                        <span>Submit & Place Order</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         </div>

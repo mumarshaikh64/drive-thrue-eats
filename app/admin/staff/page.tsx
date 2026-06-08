@@ -136,7 +136,14 @@ export default function StaffPage() {
           </div>
           <div>
             <label className="text-sm font-bold text-[#6c757d] mb-1 block">Phone Number</label>
-            <input type="tel" value={phone} onChange={e => setPhone(e.target.value)} className="w-full bg-[#FAFAFC] border border-[#dee2e6] rounded-lg px-4 py-2.5 text-sm" placeholder="+91 123456789" />
+            <input 
+              type="tel" 
+              value={phone} 
+              maxLength={11}
+              onChange={e => setPhone(e.target.value.replace(/\D/g, '').slice(0, 11))} 
+              className="w-full bg-[#FAFAFC] border border-[#dee2e6] rounded-lg px-4 py-2.5 text-sm" 
+              placeholder="e.g. 03001234567" 
+            />
           </div>
           <div className="md:col-span-2 lg:col-span-3 mt-2">
             <button type="submit" className="bg-brand-red text-white px-8 py-2.5 rounded-lg font-bold">
@@ -146,48 +153,62 @@ export default function StaffPage() {
         </form>
       )}
 
-      <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {(Array.isArray(staff) ? staff : []).map(s => (
-          <div key={s.id} className="bg-white rounded-2xl shadow-sm border border-[#dee2e6] p-6 relative group overflow-hidden">
-            <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-              <button onClick={() => startEdit(s)} className="text-blue-100 hover:text-blue-500">
-                <EditIcon size={20} />
-              </button>
-              <button onClick={() => removeStaff(s.sid)} className="text-red-100 hover:text-red-500">
-                <Trash2 size={20} />
-              </button>
-            </div>
-            <div className="flex items-center gap-4 mb-6">
-              <div className={`w-14 h-14 rounded-full flex items-center justify-center text-white ${s.role === 'Manager' ? 'bg-blue-500' :
-                  s.role === 'Kitchen Staff' ? 'bg-brand-orange' : 
-                  s.role === 'Waiter' ? 'bg-purple-500' :
-                  s.role === 'Counter Staff' ? 'bg-yellow-500' : 'bg-green-500'
-                }`}>
-                {s.role === 'Manager' ? <ShieldCheck size={28} /> :
-                  s.role === 'Kitchen Staff' ? <ChefHat size={28} /> : 
-                  s.role === 'Waiter' ? <UserCircle size={28} /> :
-                  s.role === 'Counter Staff' ? <UserCircle size={28} /> : <Truck size={28} />}
-              </div>
-              <div>
-                <h3 className="font-bold text-lg text-[#212529] leading-tight">{s.name}</h3>
-                <span className="text-xs font-bold text-[#6c757d] uppercase tracking-wider">{s.sid || s.id}</span>
-              </div>
-            </div>
-
-            <div className="space-y-3">
-              <div className="flex items-center gap-3 text-sm text-[#212529] font-medium bg-[#FAFAFC] p-2 rounded-lg">
-                <Briefcase size={16} className="text-[#6c757d]" />
-                {s.role}
-              </div>
-              {(s.phone || s.email) && (
-                <div className="flex flex-col gap-2 text-sm text-[#212529] font-medium bg-[#FAFAFC] p-3 rounded-lg">
-                  {s.phone && <div className="flex items-center gap-3"><Phone size={16} className="text-[#6c757d]" /> {s.phone}</div>}
-                  {s.email && <div className="flex items-center gap-3"><Mail size={16} className="text-[#6c757d]" /> {s.email}</div>}
-                </div>
-              )}
-            </div>
-          </div>
-        ))}
+      <div className="bg-white rounded-2xl shadow-sm border border-[#dee2e6] overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="bg-gray-50 border-b border-[#dee2e6] text-xs font-bold text-gray-500 uppercase tracking-widest">
+                <th className="py-4 px-6">Staff Member</th>
+                <th className="py-4 px-6">Role</th>
+                <th className="py-4 px-6">Contact Info</th>
+                <th className="py-4 px-6">Login PIN</th>
+                <th className="py-4 px-6 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[#dee2e6]">
+              {(Array.isArray(staff) ? staff : []).map(s => (
+                <tr key={s.id} className="hover:bg-gray-50/50 transition-colors group">
+                  <td className="py-4 px-6">
+                    <div className="flex items-center gap-4">
+                      <div className="w-10 h-10 rounded-full flex items-center justify-center text-[#6c757d] bg-[#FAFAFC] border border-[#dee2e6]">
+                        {s.role === 'Manager' ? <ShieldCheck size={20} /> :
+                          s.role === 'Kitchen Staff' ? <ChefHat size={20} /> : <UserCircle size={20} />}
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-sm text-[#212529]">{s.name}</h4>
+                        <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">{s.sid || s.id}</span>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="py-4 px-6">
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-gray-100 text-gray-700 border border-gray-200/50">
+                      {s.role}
+                    </span>
+                  </td>
+                  <td className="py-4 px-6">
+                    <div className="space-y-1 text-xs text-[#212529] font-medium">
+                      {s.phone && <div className="flex items-center gap-2"><Phone size={13} className="text-gray-400" /> {s.phone}</div>}
+                      {s.email && <div className="flex items-center gap-2"><Mail size={13} className="text-gray-400" /> {s.email}</div>}
+                    </div>
+                  </td>
+                  <td className="py-4 px-6">
+                    <span className="font-mono text-sm bg-gray-100 px-2.5 py-1 rounded-md text-gray-600 font-bold tracking-widest">{s.pin || '1234'}</span>
+                  </td>
+                  <td className="py-4 px-6 text-right">
+                    <div className="flex items-center justify-end gap-2">
+                      <button onClick={() => startEdit(s)} className="p-2 rounded-lg bg-gray-50 text-gray-400 hover:bg-blue-50 hover:text-blue-500 transition-all border border-gray-100" title="Edit Staff">
+                        <EditIcon size={16} />
+                      </button>
+                      <button onClick={() => removeStaff(s.sid)} className="p-2 rounded-lg bg-gray-50 text-gray-400 hover:bg-red-50 hover:text-red-500 transition-all border border-gray-100" title="Delete Staff">
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );

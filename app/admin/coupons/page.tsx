@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { Tag, Plus, Loader2, Trash2, Power, Percent } from 'lucide-react';
+import { Tag, Plus, Loader2, Trash2, Power, Percent, Pencil } from 'lucide-react';
 
 export default function Coupons() {
   const [coupons, setCoupons] = useState<any[]>([]);
@@ -9,6 +9,7 @@ export default function Coupons() {
   const [code, setCode] = useState('');
   const [discount, setDiscount] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [editingCouponId, setEditingCouponId] = useState<string | null>(null);
 
   const fetchCoupons = async () => {
     try {
@@ -26,32 +27,62 @@ export default function Coupons() {
     fetchCoupons();
   }, []);
 
-  const handleCreate = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!code || !discount) return;
     
     setIsSubmitting(true);
     try {
-      const res = await fetch('/api/coupons', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code, discount })
-      });
-      const data = await res.json();
-      
-      if (res.ok) {
-        setCode('');
-        setDiscount('');
-        fetchCoupons();
+      if (editingCouponId) {
+        const res = await fetch('/api/coupons', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: editingCouponId, code, discount })
+        });
+        const data = await res.json();
+        
+        if (res.ok) {
+          setCode('');
+          setDiscount('');
+          setEditingCouponId(null);
+          fetchCoupons();
+        } else {
+          alert(data.error || 'Failed to update coupon');
+        }
       } else {
-        alert(data.error || 'Failed to create coupon');
+        const res = await fetch('/api/coupons', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ code, discount })
+        });
+        const data = await res.json();
+        
+        if (res.ok) {
+          setCode('');
+          setDiscount('');
+          fetchCoupons();
+        } else {
+          alert(data.error || 'Failed to create coupon');
+        }
       }
     } catch (e) {
       console.error(e);
-      alert('Error creating coupon');
+      alert('Error saving coupon');
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const startEdit = (coupon: any) => {
+    setEditingCouponId(coupon.id);
+    setCode(coupon.code);
+    setDiscount(coupon.discount.toString());
+  };
+
+  const cancelEdit = () => {
+    setEditingCouponId(null);
+    setCode('');
+    setDiscount('');
   };
 
   const toggleStatus = async (id: string, currentStatus: boolean) => {
@@ -85,40 +116,41 @@ export default function Coupons() {
     <div className="max-w-6xl mx-auto space-y-8 animate-fade-in p-6">
       <div className="flex justify-between items-end">
         <div>
-          <h1 className="text-4xl font-black text-white tracking-tighter uppercase">Coupons</h1>
-          <p className="text-gray-400 font-bold uppercase tracking-widest text-sm mt-2 flex items-center gap-2">
-            Discount Management <div className="h-1 w-8 bg-brand-red rounded-full" />
+          <h1 className="text-4xl font-black text-[#212529] tracking-tighter uppercase">Coupons</h1>
+          <p className="text-gray-400 font-bold uppercase tracking-widest text-xs mt-2 flex items-center gap-2">
+            Discount Management <span className="h-1 w-8 bg-brand-red rounded-full" />
           </p>
         </div>
       </div>
 
       <div className="grid md:grid-cols-3 gap-8">
         <div className="md:col-span-1">
-          <form onSubmit={handleCreate} className="bg-[#212529] rounded-[2rem] p-8 border border-gray-800 sticky top-8">
-            <h2 className="text-xl font-bold text-white mb-6 uppercase flex items-center gap-2">
-              <Plus className="text-brand-red" /> New Coupon
+          <form onSubmit={handleSubmit} className="bg-white rounded-3xl p-8 border border-[#dee2e6] shadow-sm sticky top-8">
+            <h2 className="text-xl font-bold text-[#212529] mb-6 uppercase flex items-center gap-2">
+              {editingCouponId ? <Pencil className="text-brand-red" size={20} /> : <Plus className="text-brand-red" size={20} />}
+              {editingCouponId ? 'Edit Coupon' : 'New Coupon'}
             </h2>
             
             <div className="space-y-6">
               <div>
-                <label className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2 block">Coupon Code</label>
+                <label className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2 block">Coupon Code</label>
                 <div className="relative">
-                  <Tag className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" size={18} />
+                  <Tag className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
                   <input
                     type="text"
                     required
                     value={code}
                     onChange={e => setCode(e.target.value.toUpperCase())}
                     placeholder="e.g. SUMMER20"
-                    className="w-full bg-[#1a1d20] border border-gray-700 rounded-xl py-3 pl-12 pr-4 text-white font-bold uppercase placeholder:text-gray-600 focus:outline-none focus:border-brand-red transition-all"
+                    className="w-full bg-[#FAFAFC] border border-[#dee2e6] rounded-xl py-3.5 pl-12 pr-4 text-[#212529] font-bold uppercase placeholder:text-gray-400 focus:outline-none focus:border-brand-red focus:ring-2 focus:ring-brand-red/10 transition-all"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2 block">Discount (%)</label>
+                <label className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2 block">Discount (%)</label>
                 <div className="relative">
-                  <Percent className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" size={18} />
+                  <Percent className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
                   <input
                     type="number"
                     required
@@ -127,7 +159,7 @@ export default function Coupons() {
                     value={discount}
                     onChange={e => setDiscount(e.target.value)}
                     placeholder="10"
-                    className="w-full bg-[#1a1d20] border border-gray-700 rounded-xl py-3 pl-12 pr-4 text-white font-bold placeholder:text-gray-600 focus:outline-none focus:border-brand-red transition-all"
+                    className="w-full bg-[#FAFAFC] border border-[#dee2e6] rounded-xl py-3.5 pl-12 pr-4 text-[#212529] font-bold placeholder:text-gray-400 focus:outline-none focus:border-brand-red focus:ring-2 focus:ring-brand-red/10 transition-all"
                   />
                 </div>
               </div>
@@ -135,10 +167,20 @@ export default function Coupons() {
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="w-full bg-brand-red text-white py-4 rounded-xl font-bold uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-red-600 transition-all disabled:opacity-50"
+                className="w-full bg-brand-red text-white py-4 rounded-xl font-bold uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-red-700 transition-all disabled:opacity-50"
               >
-                {isSubmitting ? <Loader2 className="animate-spin" /> : 'Create Coupon'}
+                {isSubmitting ? <Loader2 className="animate-spin" /> : editingCouponId ? 'Update Coupon' : 'Create Coupon'}
               </button>
+
+              {editingCouponId && (
+                <button
+                  type="button"
+                  onClick={cancelEdit}
+                  className="w-full bg-gray-100 text-gray-700 py-3.5 rounded-xl font-bold uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-gray-200 transition-all mt-2"
+                >
+                  Cancel Edit
+                </button>
+              )}
             </div>
           </form>
         </div>
@@ -149,24 +191,24 @@ export default function Coupons() {
               <Loader2 className="animate-spin" size={40} />
             </div>
           ) : coupons.length === 0 ? (
-            <div className="bg-[#212529] rounded-[2rem] p-12 text-center border border-gray-800 flex flex-col items-center justify-center">
-              <Tag size={48} className="text-gray-600 mb-4" />
+            <div className="bg-white rounded-3xl p-12 text-center border border-[#dee2e6] flex flex-col items-center justify-center shadow-sm">
+              <Tag size={48} className="text-gray-300 mb-4" />
               <h3 className="text-xl font-bold text-gray-400 uppercase">No Coupons Active</h3>
               <p className="text-sm text-gray-500 mt-2">Create your first discount code.</p>
             </div>
           ) : (
             coupons.map((coupon) => (
-              <div key={coupon.id} className="bg-[#212529] border border-gray-800 p-6 rounded-2xl flex items-center justify-between group hover:border-gray-600 transition-all">
+              <div key={coupon.id} className="bg-white border border-[#dee2e6] p-6 rounded-2xl flex items-center justify-between group hover:shadow-soft transition-all">
                 <div className="flex items-center gap-6">
-                  <div className={`w-16 h-16 rounded-2xl flex items-center justify-center font-bold text-xl shadow-inner ${coupon.isActive ? 'bg-brand-red/10 text-brand-red' : 'bg-gray-800 text-gray-500'}`}>
+                  <div className={`w-16 h-16 rounded-2xl flex items-center justify-center font-bold text-xl shadow-inner ${coupon.isActive ? 'bg-brand-red/10 text-brand-red' : 'bg-gray-100 text-gray-400'}`}>
                     {coupon.discount}%
                   </div>
                   <div>
-                    <h3 className={`text-2xl font-black uppercase tracking-widest ${coupon.isActive ? 'text-white' : 'text-gray-500 line-through'}`}>
+                    <h3 className={`text-2xl font-black uppercase tracking-widest ${coupon.isActive ? 'text-[#212529]' : 'text-gray-400 line-through'}`}>
                       {coupon.code}
                     </h3>
-                    <p className="text-xs text-gray-500 font-bold uppercase mt-1">
-                      {new Date(coupon.createdAt).toLocaleDateString()} &middot; {coupon.isActive ? <span className="text-green-500">Active</span> : <span className="text-gray-500">Disabled</span>}
+                    <p className="text-xs text-gray-400 font-bold uppercase mt-1">
+                      {new Date(coupon.createdAt).toLocaleDateString()} &middot; {coupon.isActive ? <span className="text-green-600 font-bold">Active</span> : <span className="text-gray-400 font-medium">Disabled</span>}
                     </p>
                   </div>
                 </div>
@@ -175,14 +217,24 @@ export default function Coupons() {
                   <button
                     onClick={() => toggleStatus(coupon.id, coupon.isActive)}
                     className={`px-4 py-2 rounded-lg font-bold text-xs uppercase transition-all flex items-center gap-2 ${
-                      coupon.isActive ? 'bg-gray-800 text-gray-400 hover:text-white' : 'bg-green-500/10 text-green-500 hover:bg-green-500 hover:text-white'
+                      coupon.isActive 
+                        ? 'bg-gray-100 text-gray-500 hover:bg-gray-200 hover:text-gray-700' 
+                        : 'bg-green-50 text-green-600 hover:bg-green-600 hover:text-white border border-green-200'
                     }`}
                   >
                     <Power size={14} /> {coupon.isActive ? 'Disable' : 'Enable'}
                   </button>
                   <button
+                    onClick={() => startEdit(coupon)}
+                    className="p-2 rounded-lg bg-gray-50 text-gray-400 hover:bg-brand-red/10 hover:text-brand-red transition-all border border-gray-100"
+                    title="Edit Coupon"
+                  >
+                    <Pencil size={16} />
+                  </button>
+                  <button
                     onClick={() => handleDelete(coupon.id)}
-                    className="p-2 rounded-lg bg-gray-800 text-gray-500 hover:bg-red-500/10 hover:text-red-500 transition-all"
+                    className="p-2 rounded-lg bg-gray-50 text-gray-400 hover:bg-red-50 hover:text-red-500 transition-all border border-gray-100"
+                    title="Delete Coupon"
                   >
                     <Trash2 size={16} />
                   </button>

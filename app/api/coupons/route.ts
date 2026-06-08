@@ -53,6 +53,32 @@ export async function POST(req: Request) {
 export async function PATCH(req: Request) {
   try {
     const data = await req.json();
+    
+    // Check if we are updating details (code/discount)
+    if (data.code !== undefined || data.discount !== undefined) {
+      if (data.code) {
+        const existing = await prisma.coupon.findFirst({
+          where: {
+            code: data.code.toUpperCase(),
+            NOT: { id: data.id }
+          }
+        });
+        if (existing) {
+          return NextResponse.json({ error: 'Coupon code already exists' }, { status: 400 });
+        }
+      }
+
+      const updateData: any = {};
+      if (data.code) updateData.code = data.code.toUpperCase();
+      if (data.discount) updateData.discount = parseInt(data.discount);
+
+      const coupon = await prisma.coupon.update({
+        where: { id: data.id },
+        data: updateData
+      });
+      return NextResponse.json({ success: true, coupon });
+    }
+
     const activate = Boolean(data.isActive);
     const coupon = await prisma.$transaction(async (tx) => {
       if (activate) {

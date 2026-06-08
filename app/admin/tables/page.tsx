@@ -253,84 +253,94 @@ export default function TablesPage() {
         </form>
       )}
 
-      <div className="bg-white border border-[#dee2e6] rounded-2xl shadow-sm p-6 overflow-hidden">
-        
-        {/* Key Indicators */}
-        <div className="flex gap-6 mb-8 text-sm font-bold border-b border-[#dee2e6] pb-4">
-          <div className="flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-green-500"></span> Available</div>
-          <div className="flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-brand-red"></span> Booked (2h Time Limit)</div>
+      <div className="bg-white border border-[#dee2e6] rounded-2xl shadow-sm overflow-hidden">
+        {/* Key Indicators header */}
+        <div className="p-6 border-b border-[#dee2e6] flex flex-col sm:flex-row justify-between items-start sm:items-center bg-gray-50/50 gap-4">
+          <h2 className="text-xl font-bold text-[#212529]">Live Tables Status</h2>
+          <div className="flex gap-4 text-xs font-bold">
+            <div className="flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full bg-green-500"></span> Available</div>
+            <div className="flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full bg-brand-red animate-pulse"></span> Booked (2h Limit)</div>
+          </div>
         </div>
 
-        {/* Tables Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {tablesList.map(table => {
-            const activeRes = isTableOccupied(table);
-            const isOccupied = !!activeRes;
-            const timeLeft = getTimeLeft(activeRes);
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="bg-white text-[#6c757d] text-[10px] uppercase font-bold tracking-widest border-b border-[#dee2e6]">
+                <th className="p-6">Table Info</th>
+                <th className="p-6">Capacity</th>
+                <th className="p-6">Status</th>
+                <th className="p-6">Current Occupant / Booking</th>
+                <th className="p-6">Time Left</th>
+                <th className="p-6 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[#dee2e6]">
+              {tablesList.map(table => {
+                const activeRes = isTableOccupied(table);
+                const isOccupied = !!activeRes;
+                const timeLeft = getTimeLeft(activeRes);
 
-            return (
-              <div key={table.id} className={`p-6 rounded-2xl border-2 transition-all ${
-                isOccupied ? 'border-brand-red bg-red-50' : 'border-[#dee2e6] bg-[#FAFAFC] hover:border-green-400'
-              }`}>
-                <div className="flex justify-between items-start mb-4">
-                  <div className="flex items-center gap-2">
-                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-white ${
-                      isOccupied ? 'bg-brand-red' : 'bg-green-500'
-                    }`}>
-                      <LayoutGrid size={24} />
-                    </div>
-                    <div>
-                      <h3 className="font-bold text-xl text-[#212529]">Table {table.number}</h3>
-                      <span className="text-xs font-bold text-[#6c757d] uppercase tracking-wider">{table.type}</span>
-                    </div>
-                  </div>
-                  {isOccupied ? (
-                    <span className="px-3 py-1 bg-brand-red text-white text-xs font-bold rounded-full animate-pulse">Booked</span>
-                  ) : (
-                    <span className="px-3 py-1 bg-green-100 text-green-700 text-xs font-bold rounded-full flex items-center gap-1"><CheckCircle size={14}/>Free</span>
-                  )}
-                </div>
-
-                <div className="space-y-3 mt-6">
-                  <div className="flex justify-between items-center bg-white p-3 rounded-lg border border-[#dee2e6]">
-                    <span className="text-sm font-bold text-[#6c757d] flex items-center gap-2">
-                      <Users size={16} /> Capacity
-                    </span>
-                    <span className="text-sm font-bold text-[#212529]">{table.seats} Persons</span>
-                  </div>
-
-                  {isOccupied && activeRes ? (
-                    <div className="flex justify-between items-center bg-white p-3 rounded-lg border border-brand-red/30">
-                      <div className="flex flex-col">
-                        <span className="text-xs font-bold text-brand-red flex items-center gap-2">
-                          <Clock size={14} /> Will be Free In
-                        </span>
-                        <span className="text-xs font-bold text-[#6c757d] mt-1 line-clamp-1">{activeRes.name} ({activeRes.guests} guests)</span>
+                return (
+                  <tr key={table.id} className={`hover:bg-gray-50/50 transition-colors ${isOccupied ? 'bg-red-50/20' : ''}`}>
+                    <td className="p-6">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-white flex-shrink-0 ${
+                          isOccupied ? 'bg-brand-red' : 'bg-green-500'
+                        }`}>
+                          <LayoutGrid size={20} />
+                        </div>
+                        <div>
+                          <p className="font-bold text-sm text-[#212529]">Table {table.number}</p>
+                          <span className="text-[10px] font-bold text-[#6c757d] uppercase tracking-wider">{table.type}</span>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2">
+                    </td>
+                    <td className="p-6">
+                      <span className="font-bold text-sm text-[#212529]">{table.seats} Persons</span>
+                    </td>
+                    <td className="p-6">
+                      {isOccupied ? (
+                        <span className="px-3 py-1 bg-brand-red text-white text-xs font-bold rounded-full animate-pulse inline-block">Booked</span>
+                      ) : (
+                        <span className="px-3 py-1 bg-green-100 text-green-700 text-xs font-bold rounded-full flex items-center gap-1 w-max"><CheckCircle size={14}/>Free</span>
+                      )}
+                    </td>
+                    <td className="p-6">
+                      {isOccupied && activeRes ? (
+                        <div>
+                          <p className="text-sm font-bold text-[#212529]">{activeRes.name}</p>
+                          <p className="text-xs text-[#6c757d]">({activeRes.guests} guests)</p>
+                        </div>
+                      ) : (
+                        <span className="text-sm text-[#6c757d]">-</span>
+                      )}
+                    </td>
+                    <td className="p-6">
+                      {isOccupied ? (
+                        <span className="font-mono text-sm font-bold text-brand-red">{timeLeft}</span>
+                      ) : (
+                        <span className="text-sm text-[#6c757d]">-</span>
+                      )}
+                    </td>
+                    <td className="p-6 text-right">
+                      {isOccupied && activeRes && (
                         <button 
                           onClick={() => printReceipt(activeRes, table)}
-                          className="bg-brand-red text-white p-2 rounded-lg hover:bg-red-700 transition" 
+                          className="p-2 bg-brand-red hover:bg-red-700 text-white rounded-lg transition" 
                           title="Print Receipt"
                         >
-                          <Printer size={18} />
+                          <Printer size={16} />
                         </button>
-                        <span className="text-lg font-bold text-brand-red">{timeLeft}</span>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="flex justify-between items-center bg-white p-3 rounded-lg border border-[#dee2e6] opacity-60">
-                      <span className="text-sm font-bold text-[#6c757d] flex items-center gap-2">
-                        <Clock size={16} /> Will be Free In
-                      </span>
-                      <span className="text-sm font-bold text-[#6c757d]">-</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            );
-          })}
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
+      </div>
       {/* Reservations List Section */}
       <div className="bg-white border border-[#dee2e6] rounded-2xl shadow-sm overflow-hidden">
         <div className="p-6 border-b border-[#dee2e6] flex justify-between items-center bg-gray-50/50">
@@ -393,6 +403,5 @@ export default function TablesPage() {
         </div>
       </div>
     </div>
-  </div>
-);
+  );
 }
