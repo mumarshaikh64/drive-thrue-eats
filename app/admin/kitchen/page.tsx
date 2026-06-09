@@ -1,11 +1,13 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { Clock, CheckCircle2, ChefHat, Package, UserCircle, Check } from 'lucide-react';
+import { Clock, CheckCircle2, ChefHat, Package, UserCircle, Check, AlertTriangle } from 'lucide-react';
 
 export default function KitchenPage() {
   const [orders, setOrders] = useState<any[]>([]);
   const [staff, setStaff] = useState<any[]>([]);
   const [lastOrderId, setLastOrderId] = useState<string | null>(null);
+  const [notifiedCancelledOrders, setNotifiedCancelledOrders] = useState<string[]>([]);
+  const [cancellationAlerts, setCancellationAlerts] = useState<{orderId: string, tableNumber: string | null, reason: string}[]>([]);
 
   const loadData = async () => {
     // Audio Notification Sound (Royalty Free Bell)
@@ -23,6 +25,35 @@ export default function KitchenPage() {
         setLastOrderId(latestId);
       }
       setOrders(ordData);
+
+      // Check for newly chef-cancelled orders
+      if (Array.isArray(ordData)) {
+        ordData.filter((o: any) => o.status === 'Cancelled' && o.instructions?.startsWith('[CANCELLED_BY_CHEF:')).forEach((order: any) => {
+          const uniqueId = order.orderId || order.id;
+          setNotifiedCancelledOrders(prevNotified => {
+            if (!prevNotified.includes(uniqueId)) {
+              let reason = 'Out of Stock';
+              const inst = order.instructions || '';
+              const idx = inst.indexOf(']');
+              if (idx > -1) {
+                reason = inst.substring('[CANCELLED_BY_CHEF:'.length, idx).trim();
+              }
+
+              // Add to cancellationAlerts
+              setCancellationAlerts(prevAlerts => [
+                ...prevAlerts,
+                { orderId: order.orderId || order.id, tableNumber: order.tableNumber, reason }
+              ]);
+
+              // Play warning audio
+              notificationSound.play().catch(e => console.log('Audio blocked:', e));
+
+              return [...prevNotified, uniqueId];
+            }
+            return prevNotified;
+          });
+        });
+      }
 
       const stfRes = await fetch('/api/staff');
       const stfData = await stfRes.json();
@@ -43,6 +74,26 @@ export default function KitchenPage() {
 
   return (
     <div className="max-w-7xl mx-auto h-full flex flex-col">
+      {cancellationAlerts.length > 0 && (
+        <div className="mb-6 bg-red-600 text-white p-5 rounded-2xl flex flex-col gap-3 shadow-lg border border-red-500/20">
+          <h4 className="font-bold text-xs uppercase tracking-wider flex items-center gap-2">
+            <AlertTriangle size={16} /> Chef Rejection Alerts (Order Cannot Be Made)
+          </h4>
+          <div className="space-y-2">
+            {cancellationAlerts.map((alert, idx) => (
+              <div key={idx} className="flex items-center justify-between gap-4 font-bold text-xs uppercase tracking-wider bg-red-700/30 px-4 py-2.5 rounded-xl border border-white/10">
+                <span>⚠️ Order {alert.orderId} {alert.tableNumber ? `(Table ${alert.tableNumber})` : ''} was CANCELLED by Chef: "{alert.reason}"</span>
+                <button 
+                  onClick={() => setCancellationAlerts(prev => prev.filter((_, i) => i !== idx))}
+                  className="underline text-[10px] opacity-80 hover:opacity-100 uppercase"
+                >
+                  Dismiss
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-3xl font-bold font-body text-brand-text mb-2">Kitchen Monitoring <span className="text-brand-red">(View Only)</span></h1>
