@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { tables as defaultTables, Table } from '@/data/tables';
-import { LayoutGrid, Users, Clock, CheckCircle, Printer, Plus } from 'lucide-react';
+import { LayoutGrid, Users, Clock, CheckCircle, Printer, Plus, Edit, Trash2 } from 'lucide-react';
 
 export default function TablesPage() {
   const [reservations, setReservations] = useState<any[]>([]);
@@ -15,6 +15,12 @@ export default function TablesPage() {
   const [newNumber, setNewNumber] = useState('');
   const [newSeats, setNewSeats] = useState('4');
   const [newType, setNewType] = useState('regular');
+
+  // Edit Table State
+  const [editingTable, setEditingTable] = useState<Table | null>(null);
+  const [editNumber, setEditNumber] = useState('');
+  const [editSeats, setEditSeats] = useState('4');
+  const [editType, setEditType] = useState('regular');
 
   useEffect(() => {
     const loadAllData = async () => {
@@ -70,6 +76,47 @@ export default function TablesPage() {
       setTablesList([...tablesList, data].sort((a,b) => a.number - b.number));
       setShowAddForm(false);
       setNewNumber('');
+    });
+  };
+
+  const handleEditSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingTable || !editNumber) return;
+
+    const updatedData = {
+      id: editingTable.id,
+      number: parseInt(editNumber),
+      seats: parseInt(editSeats),
+      type: editType
+    };
+
+    fetch('/api/tables', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updatedData)
+    })
+    .then(res => res.json())
+    .then(data => {
+      setTablesList(tablesList.map(t => t.id === editingTable.id ? data : t).sort((a,b) => a.number - b.number));
+      setEditingTable(null);
+    });
+  };
+
+  const deleteTable = (id: string, number: number) => {
+    if (!confirm(`Are you sure you want to delete Table ${number}?`)) return;
+
+    fetch('/api/tables', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id })
+    })
+    .then(res => res.json())
+    .then(data => {
+      if (data.success) {
+        setTablesList(tablesList.filter(t => t.id !== id));
+      } else {
+        alert('Failed to delete table');
+      }
     });
   };
 
@@ -253,6 +300,44 @@ export default function TablesPage() {
         </form>
       )}
 
+      {editingTable && (
+        <form onSubmit={handleEditSubmit} className="bg-white p-6 rounded-2xl shadow-sm border border-[#dee2e6] grid md:grid-cols-3 gap-4">
+          <div className="md:col-span-3 flex justify-between items-center">
+            <h3 className="font-bold text-lg text-[#212529]">Edit Table {editingTable.number}</h3>
+            <button 
+              type="button" 
+              onClick={() => setEditingTable(null)} 
+              className="text-sm font-bold text-slate-400 hover:text-slate-600 uppercase tracking-widest"
+            >
+              Cancel
+            </button>
+          </div>
+          <div className="md:col-span-3">
+            <hr className="mb-2" />
+          </div>
+          <div>
+            <label className="text-sm font-bold text-[#6c757d] mb-1 block">Table Number Identifier</label>
+            <input required type="number" min="1" value={editNumber} onChange={e => setEditNumber(e.target.value)} className="w-full bg-[#FAFAFC] border border-[#dee2e6] rounded-lg px-4 py-2.5 text-sm" placeholder="13" />
+          </div>
+          <div>
+            <label className="text-sm font-bold text-[#6c757d] mb-1 block">Capacity / Seats</label>
+            <input required type="number" min="1" value={editSeats} onChange={e => setEditSeats(e.target.value)} className="w-full bg-[#FAFAFC] border border-[#dee2e6] rounded-lg px-4 py-2.5 text-sm" />
+          </div>
+          <div>
+            <label className="text-sm font-bold text-[#6c757d] mb-1 block">Table Type</label>
+            <select value={editType} onChange={e => setEditType(e.target.value)} className="w-full bg-[#FAFAFC] border border-[#dee2e6] rounded-lg px-4 py-2.5 text-sm font-bold">
+              <option value="window">Window Seat</option>
+              <option value="regular">Regular</option>
+              <option value="vip">VIP Lounge</option>
+            </select>
+          </div>
+          <div className="md:col-span-3 mt-2 flex gap-3">
+            <button type="submit" className="bg-blue-600 text-white px-8 py-2.5 rounded-lg font-bold hover:bg-blue-700 transition-colors">Update Table</button>
+            <button type="button" onClick={() => setEditingTable(null)} className="bg-gray-100 hover:bg-gray-200 text-slate-600 px-8 py-2.5 rounded-lg font-bold transition-colors">Cancel</button>
+          </div>
+        </form>
+      )}
+
       <div className="bg-white border border-[#dee2e6] rounded-2xl shadow-sm overflow-hidden">
         {/* Key Indicators header */}
         <div className="p-6 border-b border-[#dee2e6] flex flex-col sm:flex-row justify-between items-start sm:items-center bg-gray-50/50 gap-4">
@@ -324,15 +409,36 @@ export default function TablesPage() {
                       )}
                     </td>
                     <td className="p-6 text-right">
-                      {isOccupied && activeRes && (
+                      <div className="flex justify-end gap-2">
+                        {isOccupied && activeRes && (
+                          <button 
+                            onClick={() => printReceipt(activeRes, table)}
+                            className="p-2 bg-brand-red hover:bg-red-700 text-white rounded-lg transition" 
+                            title="Print Receipt"
+                          >
+                            <Printer size={16} />
+                          </button>
+                        )}
                         <button 
-                          onClick={() => printReceipt(activeRes, table)}
-                          className="p-2 bg-brand-red hover:bg-red-700 text-white rounded-lg transition" 
-                          title="Print Receipt"
+                          onClick={() => {
+                            setEditingTable(table);
+                            setEditNumber(String(table.number));
+                            setEditSeats(String(table.seats));
+                            setEditType(table.type);
+                          }}
+                          className="p-2 bg-blue-100 hover:bg-blue-600 text-blue-600 hover:text-white rounded-lg transition"
+                          title="Edit Table"
                         >
-                          <Printer size={16} />
+                          <Edit size={16} />
                         </button>
-                      )}
+                        <button 
+                          onClick={() => deleteTable(table.id, table.number)}
+                          className="p-2 bg-red-100 hover:bg-red-600 text-red-600 hover:text-white rounded-lg transition"
+                          title="Delete Table"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );

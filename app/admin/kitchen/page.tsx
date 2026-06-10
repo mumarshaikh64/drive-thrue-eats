@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Clock, CheckCircle2, ChefHat, Package, UserCircle, Check, AlertTriangle } from 'lucide-react';
 
 export default function KitchenPage() {
@@ -8,6 +8,7 @@ export default function KitchenPage() {
   const [lastOrderId, setLastOrderId] = useState<string | null>(null);
   const [notifiedCancelledOrders, setNotifiedCancelledOrders] = useState<string[]>([]);
   const [cancellationAlerts, setCancellationAlerts] = useState<{orderId: string, tableNumber: string | null, reason: string}[]>([]);
+  const isFirstLoadRef = useRef(true);
 
   const loadData = async () => {
     // Audio Notification Sound (Royalty Free Bell)
@@ -19,7 +20,7 @@ export default function KitchenPage() {
       
       if (Array.isArray(ordData) && ordData.length > 0) {
         const latestId = ordData[0].id;
-        if (lastOrderId && latestId !== lastOrderId) {
+        if (!isFirstLoadRef.current && lastOrderId && latestId !== lastOrderId) {
           notificationSound.play().catch(e => console.log('Audio blocked:', e));
         }
         setLastOrderId(latestId);
@@ -28,32 +29,46 @@ export default function KitchenPage() {
 
       // Check for newly chef-cancelled orders
       if (Array.isArray(ordData)) {
-        ordData.filter((o: any) => o.status === 'Cancelled' && o.instructions?.startsWith('[CANCELLED_BY_CHEF:')).forEach((order: any) => {
-          const uniqueId = order.orderId || order.id;
-          setNotifiedCancelledOrders(prevNotified => {
-            if (!prevNotified.includes(uniqueId)) {
-              let reason = 'Out of Stock';
-              const inst = order.instructions || '';
-              const idx = inst.indexOf(']');
-              if (idx > -1) {
-                reason = inst.substring('[CANCELLED_BY_CHEF:'.length, idx).trim();
+        const chefCancelledOrders = ordData.filter((o: any) => o.status === 'Cancelled' && o.instructions?.startsWith('[CANCELLED_BY_CHEF:'));
+        
+        if (isFirstLoadRef.current) {
+          // First load: just record existing cancelled orders to prevent mount alarms
+          const initialCancelledIds = chefCancelledOrders.map((o: any) => o.orderId || o.id);
+          setNotifiedCancelledOrders(initialCancelledIds);
+        } else {
+          // Subsequent loads: notify for new cancelled orders
+          chefCancelledOrders.forEach((order: any) => {
+            const uniqueId = order.orderId || order.id;
+            setNotifiedCancelledOrders(prevNotified => {
+              if (!prevNotified.includes(uniqueId)) {
+                let reason = 'Out of Stock';
+                const inst = order.instructions || '';
+                const idx = inst.indexOf(']');
+                if (idx > -1) {
+                  reason = inst.substring('[CANCELLED_BY_CHEF:'.length, idx).trim();
+                }
+
+                // Add to cancellationAlerts
+                setCancellationAlerts(prevAlerts => [
+                  ...prevAlerts,
+                  { orderId: order.orderId || order.id, tableNumber: order.tableNumber, reason }
+                ]);
+
+                // Play warning audio
+                notificationSound.play().catch(e => console.log('Audio blocked:', e));
+
+                return [...prevNotified, uniqueId];
               }
-
-              // Add to cancellationAlerts
-              setCancellationAlerts(prevAlerts => [
-                ...prevAlerts,
-                { orderId: order.orderId || order.id, tableNumber: order.tableNumber, reason }
-              ]);
-
-              // Play warning audio
-              notificationSound.play().catch(e => console.log('Audio blocked:', e));
-
-              return [...prevNotified, uniqueId];
-            }
-            return prevNotified;
+              return prevNotified;
+            });
           });
-        });
+        }
       }
+
+      if (!isFirstLoadRef.current) {
+        // Only set first load to false after first successful data load
+      }
+      isFirstLoadRef.current = false;
 
       const stfRes = await fetch('/api/staff');
       const stfData = await stfRes.json();
@@ -68,7 +83,7 @@ export default function KitchenPage() {
     const interval = setInterval(loadData, 10000); 
     return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lastOrderId]);
+  }, []);
 
   const activeOrders = (Array.isArray(orders) ? orders : []).filter(o => o.status === 'Pending' || o.status === 'Preparing' || o.status === 'Ready');
 

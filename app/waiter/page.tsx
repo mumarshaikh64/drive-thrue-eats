@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import {
   ShoppingBag, Utensils, LayoutGrid, Plus, Minus,
   Search, X, Check, ArrowLeft, LogOut, Loader2, Bell, AlertTriangle,
-  History
+  History, Eye
 } from 'lucide-react';
 import { resolveMenuImage } from '@/lib/image-helper';
 
@@ -28,6 +28,14 @@ export default function WaiterPortal() {
   const [activeOrders, setActiveOrders] = useState<any[]>([]);
   const [allOrders, setAllOrders] = useState<any[]>([]);
   const [waiterTab, setWaiterTab] = useState<'floor' | 'history'>('floor');
+
+  // History Filters
+  const [historyFilterStatus, setHistoryFilterStatus] = useState<string>('all');
+  const [historyFilterDate, setHistoryFilterDate] = useState<string>('all');
+  const [historyFilterCustomDate, setHistoryFilterCustomDate] = useState<string>('');
+  const [historyFilterOrderId, setHistoryFilterOrderId] = useState<string>('all');
+  const [selectedHistoryOrder, setSelectedHistoryOrder] = useState<any | null>(null);
+
   const [showCart, setShowCart] = useState(false);
   const [notifiedReadyOrders, setNotifiedReadyOrders] = useState<string[]>(() => {
     if (typeof window !== 'undefined') {
@@ -78,6 +86,7 @@ export default function WaiterPortal() {
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'online' | 'credit'>('cash');
   const [accountType, setAccountType] = useState('');
   const [transactionId, setTransactionId] = useState('');
+  const [printData, setPrintData] = useState<any>(null);
   const [kitchenTab, setKitchenTab] = useState<'Pending' | 'Preparing' | 'Ready'>('Pending');
 
   // Credit payment states
@@ -267,9 +276,9 @@ export default function WaiterPortal() {
       }
     });
 
-    // Filter cancelled orders belonging to this waiter
+    // Filter cancelled or partially cancelled orders belonging to this waiter
     const myCancelledOrders = allOrders.filter(
-      (o: any) => o.waiter === waiter.name && o.status === 'Cancelled'
+      (o: any) => o.waiter === waiter.name && (o.status === 'Cancelled' || (o.instructions && o.instructions.includes('[CANCELLED_BY_CHEF:')))
     );
 
     myCancelledOrders.forEach((order: any) => {
@@ -277,10 +286,11 @@ export default function WaiterPortal() {
       if (!notifiedCancelledOrders.includes(uniqueId)) {
         let reason = 'Out of Stock';
         const inst = order.instructions || '';
-        if (inst.startsWith('[CANCELLED_BY_CHEF:')) {
-          const idx = inst.indexOf(']');
-          if (idx > -1) {
-            reason = inst.substring('[CANCELLED_BY_CHEF:'.length, idx).trim();
+        const chefCancelIdx = inst.indexOf('[CANCELLED_BY_CHEF:');
+        if (chefCancelIdx > -1) {
+          const closingIdx = inst.indexOf(']', chefCancelIdx);
+          if (closingIdx > -1) {
+            reason = inst.substring(chefCancelIdx + '[CANCELLED_BY_CHEF:'.length, closingIdx).trim();
           }
         }
         
@@ -564,6 +574,56 @@ export default function WaiterPortal() {
     const waUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
     window.open(waUrl, '_blank');
   };
+
+  // Filter history orders
+  const waiterHistoryOrders = allOrders.filter((o: any) => o.waiter === waiter?.name);
+  const uniqueOrderIds = Array.from(
+    new Set(waiterHistoryOrders.map(o => o.orderId || o.id))
+  ).filter(Boolean).sort((a: any, b: any) => String(b).localeCompare(String(a)));
+
+  const filteredHistoryOrders = waiterHistoryOrders.filter((order) => {
+    // 1. Status Filter
+    if (historyFilterStatus !== 'all' && order.status !== historyFilterStatus) {
+      return false;
+    }
+
+    // 2. Order ID Filter
+    if (historyFilterOrderId !== 'all' && (order.orderId || order.id) !== historyFilterOrderId) {
+      return false;
+    }
+
+    // 3. Date Filter
+    if (historyFilterDate !== 'all') {
+      const orderDate = order.timestamp ? new Date(order.timestamp) : new Date();
+      const today = new Date();
+      
+      if (historyFilterDate === 'today') {
+        const isToday = orderDate.getFullYear() === today.getFullYear() &&
+                        orderDate.getMonth() === today.getMonth() &&
+                        orderDate.getDate() === today.getDate();
+        if (!isToday) return false;
+      } else if (historyFilterDate === 'yesterday') {
+        const yesterday = new Date();
+        yesterday.setDate(today.getDate() - 1);
+        const isYesterday = orderDate.getFullYear() === yesterday.getFullYear() &&
+                            orderDate.getMonth() === yesterday.getMonth() &&
+                            orderDate.getDate() === yesterday.getDate();
+        if (!isYesterday) return false;
+      } else if (historyFilterDate === 'last7') {
+        const diffTime = today.getTime() - orderDate.getTime();
+        const diffDays = diffTime / (1000 * 60 * 60 * 24);
+        if (diffDays > 7 || diffDays < 0) return false;
+      } else if (historyFilterDate === 'custom' && historyFilterCustomDate) {
+        const [year, month, day] = historyFilterCustomDate.split('-').map(Number);
+        const isCustomDate = orderDate.getFullYear() === year &&
+                             (orderDate.getMonth() + 1) === month &&
+                             orderDate.getDate() === day;
+        if (!isCustomDate) return false;
+      }
+    }
+
+    return true;
+  });
 
   return (
     <div className="min-h-screen bg-[#f8fafc] text-slate-900 font-sans selection:bg-brand-red/10 overflow-hidden">
@@ -1167,7 +1227,7 @@ export default function WaiterPortal() {
                 </div>
               </div>
             ) : (
-              <div className="flex-1 flex flex-col h-full animate-fade-in relative z-10">
+              <div className="flex-1 flex flex-col animate-fade-in relative z-10">
                 {step === 'tables' && (
                   <div className="space-y-12 max-w-6xl mx-auto w-full pt-4">
                     <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 pb-2 border-b border-slate-100">
@@ -1250,6 +1310,92 @@ export default function WaiterPortal() {
                           </div>
                         </div>
 
+                        {/* Premium Filter Bar */}
+                        <div className="bg-white/80 border border-slate-200 rounded-[2rem] p-6 shadow-sm flex flex-wrap gap-6 items-end">
+                          {/* Order ID Filter */}
+                          <div className="flex-1 min-w-[200px]">
+                            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Order ID</label>
+                            <select
+                              value={historyFilterOrderId}
+                              onChange={(e) => setHistoryFilterOrderId(e.target.value)}
+                              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs font-bold text-slate-700 outline-none focus:border-brand-red focus:bg-white transition-all appearance-none cursor-pointer"
+                              style={{ backgroundImage: 'url("data:image/svg+xml,%3csvg xmlns=\'http://www.w3.org/2000/svg\' fill=\'none\' viewBox=\'0 0 20 20\'%3e%3cpath stroke=\'%236b7280\' stroke-linecap=\'round\' stroke-linejoin=\'round\' stroke-width=\'1.5\' d=\'M6 8l4 4 4-4\'/%3e%3c/svg%3e")', backgroundPosition: 'right 1rem center', backgroundSize: '1.25rem', backgroundRepeat: 'no-repeat', paddingRight: '2.5rem' }}
+                            >
+                              <option value="all">All Order IDs</option>
+                              {uniqueOrderIds.map(id => (
+                                <option key={id} value={id}>{id}</option>
+                              ))}
+                            </select>
+                          </div>
+
+                          {/* Date Filter */}
+                          <div className="flex-1 min-w-[200px] flex gap-3 items-end">
+                            <div className="flex-1">
+                              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Date</label>
+                              <select
+                                value={historyFilterDate}
+                                onChange={(e) => {
+                                  setHistoryFilterDate(e.target.value);
+                                  if (e.target.value !== 'custom') {
+                                    setHistoryFilterCustomDate('');
+                                  }
+                                }}
+                                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs font-bold text-slate-700 outline-none focus:border-brand-red focus:bg-white transition-all appearance-none cursor-pointer"
+                                style={{ backgroundImage: 'url("data:image/svg+xml,%3csvg xmlns=\'http://www.w3.org/2000/svg\' fill=\'none\' viewBox=\'0 0 20 20\'%3e%3cpath stroke=\'%236b7280\' stroke-linecap=\'round\' stroke-linejoin=\'round\' stroke-width=\'1.5\' d=\'M6 8l4 4 4-4\'/%3e%3c/svg%3e")', backgroundPosition: 'right 1rem center', backgroundSize: '1.25rem', backgroundRepeat: 'no-repeat', paddingRight: '2.5rem' }}
+                              >
+                                <option value="all">All Dates</option>
+                                <option value="today">Today</option>
+                                <option value="yesterday">Yesterday</option>
+                                <option value="last7">Last 7 Days</option>
+                                <option value="custom">Select Specific Date...</option>
+                              </select>
+                            </div>
+                            {historyFilterDate === 'custom' && (
+                              <div className="flex-1 animate-fade-in">
+                                <input
+                                  type="date"
+                                  value={historyFilterCustomDate}
+                                  onChange={(e) => setHistoryFilterCustomDate(e.target.value)}
+                                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-bold text-slate-700 outline-none focus:border-brand-red focus:bg-white transition-all"
+                                />
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Status Filter */}
+                          <div className="flex-1 min-w-[200px]">
+                            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Status</label>
+                            <select
+                              value={historyFilterStatus}
+                              onChange={(e) => setHistoryFilterStatus(e.target.value)}
+                              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs font-bold text-slate-700 outline-none focus:border-brand-red focus:bg-white transition-all appearance-none cursor-pointer"
+                              style={{ backgroundImage: 'url("data:image/svg+xml,%3csvg xmlns=\'http://www.w3.org/2000/svg\' fill=\'none\' viewBox=\'0 0 20 20\'%3e%3cpath stroke=\'%236b7280\' stroke-linecap=\'round\' stroke-linejoin=\'round\' stroke-width=\'1.5\' d=\'M6 8l4 4 4-4\'/%3e%3c/svg%3e")', backgroundPosition: 'right 1rem center', backgroundSize: '1.25rem', backgroundRepeat: 'no-repeat', paddingRight: '2.5rem' }}
+                            >
+                              <option value="all">All Statuses</option>
+                              <option value="Pending">Pending</option>
+                              <option value="Preparing">Preparing</option>
+                              <option value="Ready">Ready</option>
+                              <option value="Delivered">Delivered</option>
+                              <option value="Cancelled">Cancelled</option>
+                            </select>
+                          </div>
+
+                          {/* Clear Filters Button */}
+                          {(historyFilterOrderId !== 'all' || historyFilterDate !== 'all' || historyFilterStatus !== 'all') && (
+                            <button
+                              onClick={() => {
+                                setHistoryFilterOrderId('all');
+                                setHistoryFilterDate('all');
+                                setHistoryFilterCustomDate('');
+                                setHistoryFilterStatus('all');
+                              }}
+                              className="bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold text-[10px] uppercase tracking-widest px-6 py-3.5 rounded-xl transition-all active:scale-95"
+                            >
+                              Clear Filters
+                            </button>
+                          )}
+                        </div>
+
                         {/* History Table */}
                         <div className="bg-white border border-slate-200 rounded-[2.5rem] shadow-sm overflow-hidden">
                           <div className="overflow-x-auto">
@@ -1262,17 +1408,18 @@ export default function WaiterPortal() {
                                   <th className="py-5 px-6">Items Served</th>
                                   <th className="py-5 px-6 text-right">Amount</th>
                                   <th className="py-5 px-8 text-center">Status</th>
+                                  <th className="py-5 px-6 text-center">Actions</th>
                                 </tr>
                               </thead>
                               <tbody className="divide-y divide-slate-50">
-                                {allOrders.filter((o: any) => o.waiter === waiter?.name).length === 0 ? (
+                                {filteredHistoryOrders.length === 0 ? (
                                   <tr>
-                                    <td colSpan={6} className="py-16 text-center text-slate-400 font-bold uppercase tracking-wider text-xs">
-                                      No orders recorded under your name yet.
+                                    <td colSpan={7} className="py-16 text-center text-slate-400 font-bold uppercase tracking-wider text-xs">
+                                      No orders found matching the filter criteria.
                                     </td>
                                   </tr>
                                 ) : (
-                                  allOrders.filter((o: any) => o.waiter === waiter?.name).map((order) => (
+                                  filteredHistoryOrders.map((order) => (
                                     <tr key={order.orderId || order.id} className="hover:bg-slate-50/50 transition-colors">
                                       <td className="py-5 px-8 font-black text-sm text-slate-800">{order.orderId || order.id}</td>
                                       <td className="py-5 px-6">
@@ -1300,6 +1447,15 @@ export default function WaiterPortal() {
                                         }`}>
                                           {order.status}
                                         </span>
+                                      </td>
+                                      <td className="py-5 px-6 text-center">
+                                        <button
+                                          onClick={() => setSelectedHistoryOrder(order)}
+                                          className="p-2 bg-slate-100 hover:bg-brand-red/10 text-slate-500 hover:text-brand-red rounded-xl transition-all"
+                                          title="View Details"
+                                        >
+                                          <Eye size={16} />
+                                        </button>
                                       </td>
                                     </tr>
                                   ))
@@ -1625,6 +1781,23 @@ export default function WaiterPortal() {
                                   }
                                   if (confirm("Finalize transaction and clear table status?")) {
                                     try {
+                                      // Lock order data for printing receipt
+                                      setPrintData({
+                                        orderId: existingOrderId,
+                                        items: [...existingOrderItems, ...cart],
+                                        tableNumber: selectedTable?.number,
+                                        waiterName: waiter?.name,
+                                        paymentMethod: paymentMethod === 'online'
+                                          ? `Online (${accountType})`
+                                          : paymentMethod === 'credit'
+                                            ? 'Credit'
+                                            : 'Cash',
+                                        transactionId: transactionId,
+                                        creditName: creditName,
+                                        creditCompany: creditCompany,
+                                        creditPhone: creditPhone,
+                                      });
+
                                       const updates: any = {
                                         status: 'Delivered',
                                         paymentMethod: paymentMethod === 'online'
@@ -1786,9 +1959,9 @@ export default function WaiterPortal() {
           <div className="border-b border-dashed border-gray-400 my-4" />
           <p className="text-[10px] uppercase font-bold">Sales Receipt</p>
           <p className="text-[10px]" suppressHydrationWarning>Date: {new Date().toLocaleString()}</p>
-          {existingOrderId && <p className="text-[10px]">Order ID: {existingOrderId}</p>}
-          <p className="text-[10px]">Server: {waiter?.name || 'Staff'}</p>
-          <p className="text-[10px]">Table: {selectedTable?.number}</p>
+          {(printData?.orderId || existingOrderId) && <p className="text-[10px]">Order ID: {printData?.orderId || existingOrderId}</p>}
+          <p className="text-[10px]">Server: {printData?.waiterName || waiter?.name || 'Staff'}</p>
+          <p className="text-[10px]">Table: {printData?.tableNumber || selectedTable?.number}</p>
         </div>
 
         <div className="border-b border-dashed border-gray-400 mb-4" />
@@ -1802,7 +1975,7 @@ export default function WaiterPortal() {
             </tr>
           </thead>
           <tbody>
-            {[...existingOrderItems, ...cart].map((item, i) => (
+            {(printData ? printData.items : [...existingOrderItems, ...cart]).map((item: any, i: number) => (
               <tr key={i}>
                 <td className="py-2 uppercase font-medium">{item.name}</td>
                 <td className="text-center py-2">{item.quantity}</td>
@@ -1815,7 +1988,11 @@ export default function WaiterPortal() {
         <div className="border-t border-dashed border-gray-400 pt-4 space-y-2">
           <div className="flex justify-between text-xs font-bold uppercase">
             <span>Subtotal</span>
-            <span>₹{existingOrderItems.reduce((s, it) => s + (it.price * it.quantity), 0) + cart.reduce((s, it) => s + (it.price * it.quantity), 0)}</span>
+            <span>
+              ₹{printData 
+                ? printData.items.reduce((s: number, it: any) => s + (it.price * it.quantity), 0) 
+                : existingOrderItems.reduce((s: number, it: any) => s + (it.price * it.quantity), 0) + cart.reduce((s: number, it: any) => s + (it.price * it.quantity), 0)}
+            </span>
           </div>
           <div className="flex justify-between text-xs font-bold uppercase">
             <span>Tax (0%)</span>
@@ -1823,7 +2000,11 @@ export default function WaiterPortal() {
           </div>
           <div className="flex justify-between text-lg font-bold uppercase pt-2 border-t border-gray-200">
             <span>Total</span>
-            <span>₹{existingOrderItems.reduce((s, it) => s + (it.price * it.quantity), 0) + cart.reduce((s, it) => s + (it.price * it.quantity), 0)}</span>
+            <span>
+              ₹{printData 
+                ? printData.items.reduce((s: number, it: any) => s + (it.price * it.quantity), 0) 
+                : existingOrderItems.reduce((s: number, it: any) => s + (it.price * it.quantity), 0) + cart.reduce((s: number, it: any) => s + (it.price * it.quantity), 0)}
+            </span>
           </div>
 
           {/* Payment Info on Receipt */}
@@ -1831,31 +2012,59 @@ export default function WaiterPortal() {
             <div className="flex justify-between text-[10px] uppercase">
               <span>Payment Mode</span>
               <span className="font-bold">
-                {paymentMethod === 'online' ? `Online (${accountType})` : paymentMethod === 'credit' ? 'Credit (Udhaar)' : 'Cash'}
+                {printData 
+                  ? printData.paymentMethod 
+                  : (paymentMethod === 'online' ? `Online (${accountType})` : paymentMethod === 'credit' ? 'Credit (Udhaar)' : 'Cash')}
               </span>
             </div>
-            {paymentMethod === 'online' && (
-              <div className="flex justify-between text-[10px] uppercase">
-                <span>Transaction ID</span>
-                <span className="font-bold">{transactionId}</span>
-              </div>
-            )}
-            {paymentMethod === 'credit' && (
-              <>
+            {printData 
+              ? (printData.paymentMethod.includes('Online') && (
                 <div className="flex justify-between text-[10px] uppercase">
-                  <span>Credit Name</span>
-                  <span className="font-bold">{creditName}</span>
+                  <span>Transaction ID</span>
+                  <span className="font-bold">{printData.transactionId}</span>
                 </div>
+              ))
+              : (paymentMethod === 'online' && (
                 <div className="flex justify-between text-[10px] uppercase">
-                  <span>Company</span>
-                  <span className="font-bold">{creditCompany}</span>
+                  <span>Transaction ID</span>
+                  <span className="font-bold">{transactionId}</span>
                 </div>
-                <div className="flex justify-between text-[10px] uppercase">
-                  <span>Credit Phone</span>
-                  <span className="font-bold">{creditPhone}</span>
-                </div>
-              </>
-            )}
+              ))
+            }
+            {printData 
+              ? (printData.paymentMethod.includes('Credit') && (
+                <>
+                  <div className="flex justify-between text-[10px] uppercase">
+                    <span>Credit Name</span>
+                    <span className="font-bold">{printData.creditName}</span>
+                  </div>
+                  <div className="flex justify-between text-[10px] uppercase">
+                    <span>Company</span>
+                    <span className="font-bold">{printData.creditCompany}</span>
+                  </div>
+                  <div className="flex justify-between text-[10px] uppercase">
+                    <span>Credit Phone</span>
+                    <span className="font-bold">{printData.creditPhone}</span>
+                  </div>
+                </>
+              ))
+              : (paymentMethod === 'credit' && (
+                <>
+                  <div className="flex justify-between text-[10px] uppercase">
+                    <span>Credit Name</span>
+                    <span className="font-bold">{creditName}</span>
+                  </div>
+                  <div className="flex justify-between text-[10px] uppercase">
+                    <span>Company</span>
+                    <span className="font-bold">{creditCompany}</span>
+                  </div>
+                  <div className="flex justify-between text-[10px] uppercase">
+                    <span>Credit Phone</span>
+                    <span className="font-bold">{creditPhone}</span>
+                  </div>
+                </>
+              ))
+            }
           </div>
         </div>
 
@@ -1865,6 +2074,119 @@ export default function WaiterPortal() {
           <p className="italic">Hope to see you again soon.</p>
         </div>
       </div>
+
+      {/* ==================== ORDER DETAILS MODAL ==================== */}
+      {selectedHistoryOrder && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 animate-fade-in">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            onClick={() => setSelectedHistoryOrder(null)}
+          />
+
+          {/* Modal Content */}
+          <div className="relative w-full max-w-2xl bg-white rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-violet-600 to-indigo-600 p-8 text-white relative">
+              <button
+                onClick={() => setSelectedHistoryOrder(null)}
+                className="absolute top-6 right-6 text-white/80 hover:text-white bg-white/10 hover:bg-white/20 p-2 rounded-full transition-all"
+              >
+                <X size={18} />
+              </button>
+              <p className="text-[10px] font-bold text-violet-200 uppercase tracking-widest leading-none mb-2">Order Information</p>
+              <h3 className="text-2xl font-black tracking-tight">{selectedHistoryOrder.orderId || selectedHistoryOrder.id}</h3>
+              <div className="flex flex-wrap items-center gap-3 mt-4">
+                <span className={`px-3 py-1 rounded-full text-[9px] font-bold uppercase tracking-widest border border-white/20 bg-white/10`}>
+                  {selectedHistoryOrder.status}
+                </span>
+                <span className="text-xs font-semibold text-violet-100 flex items-center gap-1.5">
+                  <History size={12} />
+                  {new Date(selectedHistoryOrder.timestamp).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}
+                </span>
+              </div>
+            </div>
+
+            {/* Body */}
+            <div className="p-8 overflow-y-auto space-y-6 flex-1 scrollbar-custom text-left">
+              {/* Order Meta Grid */}
+              <div className="grid grid-cols-2 gap-6 bg-slate-50 p-6 rounded-3xl border border-slate-100 text-xs">
+                <div>
+                  <p className="font-bold text-slate-400 uppercase tracking-widest text-[9px] mb-1">Customer Details</p>
+                  <p className="font-bold text-slate-800 text-sm">{selectedHistoryOrder.customerName || 'Walk-in Guest'}</p>
+                  <p className="text-slate-500 font-medium mt-0.5">{selectedHistoryOrder.phone !== 'N/A' ? selectedHistoryOrder.phone : 'No Phone Number'}</p>
+                </div>
+                <div>
+                  <p className="font-bold text-slate-400 uppercase tracking-widest text-[9px] mb-1">Service Details</p>
+                  <p className="font-bold text-slate-800 text-sm">
+                    {selectedHistoryOrder.tableNumber ? `Table ${selectedHistoryOrder.tableNumber}` : 'Takeaway / Drive-Thru'}
+                  </p>
+                  <p className="text-slate-500 font-medium mt-0.5">
+                    Type: <span className="capitalize">{selectedHistoryOrder.type || 'Dining'}</span>
+                  </p>
+                </div>
+                <div>
+                  <p className="font-bold text-slate-400 uppercase tracking-widest text-[9px] mb-1">Kitchen Staff</p>
+                  <p className="font-bold text-slate-700">{selectedHistoryOrder.chef || 'Not Assigned'}</p>
+                </div>
+                <div>
+                  <p className="font-bold text-slate-400 uppercase tracking-widest text-[9px] mb-1">Waiter</p>
+                  <p className="font-bold text-slate-700">{selectedHistoryOrder.waiter || 'Not Assigned'}</p>
+                </div>
+              </div>
+
+              {/* Items Table */}
+              <div>
+                <p className="font-bold text-slate-400 uppercase tracking-widest text-[9px] mb-3">Items Ordered</p>
+                <div className="border border-slate-100 rounded-2xl overflow-hidden">
+                  <table className="w-full text-left border-collapse text-xs">
+                    <thead>
+                      <tr className="bg-slate-50 border-b border-slate-100 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                        <th className="py-3 px-4">Item Name</th>
+                        <th className="py-3 px-4 text-center">Qty</th>
+                        <th className="py-3 px-4 text-right">Price</th>
+                        <th className="py-3 px-4 text-right">Total</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-50">
+                      {(Array.isArray(selectedHistoryOrder.items) ? selectedHistoryOrder.items : []).map((it: any, i: number) => (
+                        <tr key={i} className="hover:bg-slate-50/50 transition-colors">
+                          <td className="py-3 px-4 font-semibold text-slate-800">{it.name}</td>
+                          <td className="py-3 px-4 text-center font-bold text-slate-700">x{it.quantity}</td>
+                          <td className="py-3 px-4 text-right text-slate-600">₹{it.price?.toFixed(0)}</td>
+                          <td className="py-3 px-4 text-right font-bold text-slate-800">₹{(it.price * it.quantity)?.toFixed(0)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Special Instructions */}
+              {selectedHistoryOrder.instructions && (
+                <div className="p-5 bg-amber-50/50 border border-amber-100 rounded-2xl text-xs text-left">
+                  <p className="font-bold text-amber-600 uppercase tracking-widest text-[9px] mb-1">Notes & Instructions</p>
+                  <p className="text-slate-600 italic font-medium">"{selectedHistoryOrder.instructions}"</p>
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="p-8 border-t border-slate-100 bg-slate-50 flex items-center justify-between">
+              <div>
+                <p className="font-bold text-slate-400 uppercase tracking-widest text-[9px]">Grand Total</p>
+                <p className="text-2xl font-black text-brand-red">₹{selectedHistoryOrder.total?.toFixed(0)}</p>
+              </div>
+              <button
+                onClick={() => setSelectedHistoryOrder(null)}
+                className="bg-slate-900 hover:bg-slate-800 text-white font-bold text-[10px] uppercase tracking-widest px-6 py-3.5 rounded-2xl transition-all active:scale-95 shadow-lg shadow-slate-900/10"
+              >
+                Close Details
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Global CSS for Animations and Printing */}
       <style jsx global>{`

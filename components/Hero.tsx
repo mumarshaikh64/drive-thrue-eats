@@ -198,14 +198,7 @@ export default function Hero() {
                 />
               </div>
 
-              {/* Price Tag Overlay */}
-              <div className="absolute top-1/2 -right-4 lg:-right-8 translate-y-[-50%] bg-brand-text text-white p-5 rounded-[2rem] shadow-premium rotate-12 group-hover:rotate-0 transition-all duration-500">
-                <p className="text-[8px] font-bold text-brand-orange uppercase tracking-widest text-center mb-0.5">Value Meal</p>
-                <div className="flex items-baseline gap-0.5 justify-center">
-                  <span className="text-xs font-bold opacity-70 leading-none">₹</span>
-                  <span className="text-3xl font-bold tracking-tighter leading-none">1299</span>
-                </div>
-              </div>
+
             </div>
           </div>
         </div>

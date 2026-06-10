@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Search, ShoppingBag, Filter, X, Trash2, Edit2, CheckCircle, Clock, Eye, Info, Calendar, Plus, Minus, Utensils, AlertTriangle, Bell } from 'lucide-react';
 import { resolveMenuImage } from '@/lib/image-helper';
 
@@ -14,6 +14,7 @@ export default function OrdersPage() {
   const [editingOrder, setEditingOrder] = useState<any>(null);
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
   const [lastOrderId, setLastOrderId] = useState<string | null>(null);
+  const isFirstLoadRef = useRef(true);
 
   // New states for placing order from admin panel
   const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
@@ -79,7 +80,7 @@ export default function OrdersPage() {
         if (Array.isArray(data)) {
           if (data.length > 0) {
             const latestId = data[0].id;
-            if (lastOrderId && latestId !== lastOrderId) {
+            if (!isFirstLoadRef.current && lastOrderId && latestId !== lastOrderId) {
               notificationSound.play().catch(e => console.log('Audio play blocked:', e));
             }
             setLastOrderId(latestId);
@@ -87,44 +88,62 @@ export default function OrdersPage() {
           setOrders(data);
 
           // Check for newly chef-cancelled orders
-          data.filter((o: any) => o.status === 'Cancelled' && o.instructions?.startsWith('[CANCELLED_BY_CHEF:')).forEach((order: any) => {
-            const uniqueId = order.orderId || order.id;
-            setNotifiedCancelledOrders(prevNotified => {
-              if (!prevNotified.includes(uniqueId)) {
-                let reason = 'Out of Stock';
-                const inst = order.instructions || '';
-                const idx = inst.indexOf(']');
-                if (idx > -1) {
-                  reason = inst.substring('[CANCELLED_BY_CHEF:'.length, idx).trim();
-                }
-
-                // Add to cancellationAlerts with duplicate checking
-                setCancellationAlerts(prevAlerts => {
-                  if (prevAlerts.some(a => a.orderId === uniqueId)) {
-                    return prevAlerts;
-                  }
-                  return [
-                    ...prevAlerts,
-                    { orderId: uniqueId, tableNumber: order.tableNumber, reason }
-                  ];
-                });
-
-                // Play notification bell audio
-                notificationSound.play().catch(e => console.log('Audio blocked:', e));
-
-                const next = [...prevNotified, uniqueId];
-                if (typeof window !== 'undefined') {
-                  try {
-                    localStorage.setItem('dte_notified_cancelled_orders', JSON.stringify(next));
-                  } catch (e) {
-                    console.error(e);
-                  }
-                }
-                return next;
+          const chefCancelledOrders = data.filter((o: any) => o.status === 'Cancelled' && o.instructions?.startsWith('[CANCELLED_BY_CHEF:'));
+          
+          if (isFirstLoadRef.current) {
+            // First load: just record existing cancelled orders to prevent alarm bells
+            const initialCancelledIds = chefCancelledOrders.map((o: any) => o.orderId || o.id);
+            setNotifiedCancelledOrders(initialCancelledIds);
+            if (typeof window !== 'undefined') {
+              try {
+                localStorage.setItem('dte_notified_cancelled_orders', JSON.stringify(initialCancelledIds));
+              } catch (e) {
+                console.error(e);
               }
-              return prevNotified;
+            }
+          } else {
+            // Subsequent loads: alert for any new cancelled order
+            chefCancelledOrders.forEach((order: any) => {
+              const uniqueId = order.orderId || order.id;
+              setNotifiedCancelledOrders(prevNotified => {
+                if (!prevNotified.includes(uniqueId)) {
+                  let reason = 'Out of Stock';
+                  const inst = order.instructions || '';
+                  const idx = inst.indexOf(']');
+                  if (idx > -1) {
+                    reason = inst.substring('[CANCELLED_BY_CHEF:'.length, idx).trim();
+                  }
+
+                  // Add to cancellationAlerts with duplicate checking
+                  setCancellationAlerts(prevAlerts => {
+                    if (prevAlerts.some(a => a.orderId === uniqueId)) {
+                      return prevAlerts;
+                    }
+                    return [
+                      ...prevAlerts,
+                      { orderId: uniqueId, tableNumber: order.tableNumber, reason }
+                    ];
+                  });
+
+                  // Play notification bell audio
+                  notificationSound.play().catch(e => console.log('Audio blocked:', e));
+
+                  const next = [...prevNotified, uniqueId];
+                  if (typeof window !== 'undefined') {
+                    try {
+                      localStorage.setItem('dte_notified_cancelled_orders', JSON.stringify(next));
+                    } catch (e) {
+                      console.error(e);
+                    }
+                  }
+                  return next;
+                }
+                return prevNotified;
+              });
             });
-          });
+          }
+          
+          isFirstLoadRef.current = false;
         }
       })
       .catch(err => console.error("Fetch failed", err));
@@ -149,7 +168,7 @@ export default function OrdersPage() {
     const interval = setInterval(fetchOrders, 10000);
     return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lastOrderId]);
+  }, []);
 
   useEffect(() => {
     if (isOrderModalOpen) {
@@ -518,7 +537,7 @@ export default function OrdersPage() {
                 <th className="p-6">Customer</th>
                 <th className="p-6">Items</th>
                 <th className="p-6 text-center">Summary</th>
-                <th className="p-6 text-right">Actions</th>
+                <th className="p-6 text-center">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
@@ -570,26 +589,14 @@ export default function OrdersPage() {
                       </span>
                     </div>
                   </td>
-                  <td className="p-6 align-top text-right">
-                    <div className="flex justify-end gap-2">
+                  <td className="p-6 align-top text-center">
+                    <div className="flex justify-center gap-2">
                       <button 
                         onClick={() => setSelectedOrder(order)}
                         className="p-2.5 rounded-xl transition-all text-gray-400 hover:text-blue-600 hover:bg-blue-50"
                         title="View Full Details"
                       >
                         <Eye size={18} />
-                      </button>
-                      <button 
-                        onClick={() => cancelOrder(order.orderId)}
-                        disabled={order.status !== 'Pending'}
-                        className={`p-2.5 rounded-xl transition-all ${
-                          order.status === 'Pending' 
-                            ? 'text-gray-300 hover:text-red-500 hover:bg-red-50' 
-                            : 'text-gray-100 cursor-not-allowed opacity-30'
-                        }`}
-                        title={order.status === 'Pending' ? "Cancel/Delete Order" : "Cannot cancel once preparation starts"}
-                      >
-                        <Trash2 size={18} />
                       </button>
                     </div>
                   </td>
