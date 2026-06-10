@@ -2,7 +2,8 @@
 import { useState, useEffect } from 'react';
 import {
   ShoppingBag, Utensils, LayoutGrid, Plus, Minus,
-  Search, X, Check, ArrowLeft, LogOut, Loader2, Bell, AlertTriangle
+  Search, X, Check, ArrowLeft, LogOut, Loader2, Bell, AlertTriangle,
+  History
 } from 'lucide-react';
 import { resolveMenuImage } from '@/lib/image-helper';
 
@@ -633,6 +634,32 @@ export default function WaiterPortal() {
             </div>
 
             <div className="flex items-center gap-4">
+              {step === 'tables' && (
+                <div className="hidden sm:flex bg-slate-100 p-1 rounded-2xl border border-slate-200">
+                  <button
+                    onClick={() => setWaiterTab('floor')}
+                    className={`px-4 py-2.5 rounded-xl font-bold text-[10px] uppercase tracking-widest transition-all flex items-center gap-2 ${
+                      waiterTab === 'floor'
+                        ? 'bg-white text-slate-800 shadow-md'
+                        : 'text-slate-400 hover:text-slate-600'
+                    }`}
+                  >
+                    <LayoutGrid size={14} />
+                    Floor Map
+                  </button>
+                  <button
+                    onClick={() => setWaiterTab('history')}
+                    className={`px-4 py-2.5 rounded-xl font-bold text-[10px] uppercase tracking-widest transition-all flex items-center gap-2 ${
+                      waiterTab === 'history'
+                        ? 'bg-gradient-to-r from-violet-500 to-purple-600 text-white shadow-lg shadow-violet-500/20'
+                        : 'text-slate-400 hover:text-slate-600'
+                    }`}
+                  >
+                    <History size={14} />
+                    History
+                  </button>
+                </div>
+              )}
               {step !== 'tables' && (
                 <button
                   onClick={() => setShowCart(true)}
@@ -735,6 +762,32 @@ export default function WaiterPortal() {
               </button>
             </div>
           </header>
+
+          {/* Mobile View Switcher */}
+          {step === 'tables' && (
+            <div className="sm:hidden flex bg-slate-100 p-1.5 rounded-2xl border border-slate-200 mx-4 mt-3">
+              <button
+                onClick={() => setWaiterTab('floor')}
+                className={`flex-1 px-4 py-3 rounded-xl font-bold text-[10px] uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${
+                  waiterTab === 'floor'
+                    ? 'bg-white text-slate-800 shadow-md'
+                    : 'text-slate-400'
+                }`}
+              >
+                <LayoutGrid size={14} /> Floor Map
+              </button>
+              <button
+                onClick={() => setWaiterTab('history')}
+                className={`flex-1 px-4 py-3 rounded-xl font-bold text-[10px] uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${
+                  waiterTab === 'history'
+                    ? 'bg-gradient-to-r from-violet-500 to-purple-600 text-white shadow-lg'
+                    : 'text-slate-400'
+                }`}
+              >
+                <History size={14} /> History
+              </button>
+            </div>
+          )}
 
           {/* Main Content Area */}
           <main className="flex-1 overflow-y-auto p-8 flex flex-col scrollbar-custom">
@@ -1119,21 +1172,7 @@ export default function WaiterPortal() {
                   <div className="space-y-12 max-w-6xl mx-auto w-full pt-4">
                     <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 pb-2 border-b border-slate-100">
                       <div>
-                        <div className="flex items-center gap-4 bg-slate-100 p-1.5 rounded-[2rem] border border-slate-200 shadow-inner w-max">
-                          <button
-                            onClick={() => setWaiterTab('floor')}
-                            className={`px-6 py-2.5 rounded-full font-bold text-[10px] uppercase tracking-widest transition-all ${waiterTab === 'floor' ? 'bg-white text-slate-800 shadow-md scale-105' : 'text-slate-400 hover:text-slate-600'}`}
-                          >
-                            Floor Map
-                          </button>
-                          <button
-                            onClick={() => setWaiterTab('history')}
-                            className={`px-6 py-2.5 rounded-full font-bold text-[10px] uppercase tracking-widest transition-all ${waiterTab === 'history' ? 'bg-white text-slate-800 shadow-md scale-105' : 'text-slate-400 hover:text-slate-600'}`}
-                          >
-                            My History & Stats
-                          </button>
-                        </div>
-                        <div className="text-slate-400 font-bold text-xs uppercase tracking-[0.4em] mt-4 flex items-center gap-2">
+                        <div className="text-slate-400 font-bold text-xs uppercase tracking-[0.4em] flex items-center gap-2">
                           {waiterTab === 'floor' ? 'Restaurant Intelligence System' : 'Your Performance Overview'} <div className="w-8 h-[1px] bg-slate-200"></div>
                         </div>
                       </div>
