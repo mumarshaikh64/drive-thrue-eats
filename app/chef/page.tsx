@@ -45,6 +45,29 @@ export default function ChefPortal() {
 
   const lastOrderIdRef = useRef<string | null>(null);
 
+  // Helpers to parse cancel reason and clean instructions
+  const getCancelReasonFromInstructions = (instructions: string | null) => {
+    if (!instructions) return null;
+    if (instructions.startsWith('[CANCELLED_BY_CHEF:')) {
+      const idx = instructions.indexOf(']');
+      if (idx > -1) {
+        return instructions.substring('[CANCELLED_BY_CHEF:'.length, idx).trim();
+      }
+    }
+    return null;
+  };
+
+  const getCleanInstructions = (instructions: string | null) => {
+    if (!instructions) return '';
+    if (instructions.startsWith('[CANCELLED_BY_CHEF:')) {
+      const idx = instructions.indexOf(']');
+      if (idx > -1) {
+        return instructions.substring(idx + 1).trim();
+      }
+    }
+    return instructions;
+  };
+
   const loadInitialData = async () => {
     const notificationSound = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
 
@@ -78,7 +101,8 @@ export default function ChefPortal() {
   const loadHistory = async () => {
     setHistoryLoading(true);
     try {
-      const res = await fetch('/api/orders/stats');
+      const chefQuery = chef?.name ? `?chef=${encodeURIComponent(chef.name)}` : '';
+      const res = await fetch(`/api/orders/stats${chefQuery}`);
       const data = await res.json();
       if (data.stats) setStats(data.stats);
       if (data.orders) setHistoryOrders(data.orders);
@@ -109,12 +133,12 @@ export default function ChefPortal() {
     return () => clearInterval(interval);
   }, []);
 
-  // Load history when switching to history tab
+  // Load history when switching to history tab or when chef is loaded
   useEffect(() => {
-    if (mainView === 'history') {
+    if (mainView === 'history' && isLoggedIn) {
       loadHistory();
     }
-  }, [mainView]);
+  }, [mainView, isLoggedIn]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -195,6 +219,13 @@ export default function ChefPortal() {
 
     setCancelling(true);
     try {
+      const targetOrder = activeOrders.find(o => o.orderId === cancelOrderId);
+      const originalInstructions = targetOrder?.instructions || '';
+      const formattedReason = `[CANCELLED_BY_CHEF:${reason}]`;
+      const newInstructions = originalInstructions 
+        ? `${formattedReason} ${originalInstructions}` 
+        : formattedReason;
+
       await fetch('/api/orders', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -203,7 +234,7 @@ export default function ChefPortal() {
           updates: {
             status: 'Cancelled',
             chef: chef?.name || 'Chef',
-            instructions: `[CANCELLED_BY_CHEF:${reason}]`
+            instructions: newInstructions
           }
         })
       });
@@ -489,6 +520,12 @@ export default function ChefPortal() {
                                 );
                               })}
                             </ul>
+                            {order.instructions && (
+                              <div className="mb-6 p-3 bg-amber-50/50 border border-amber-100 rounded-xl">
+                                <p className="text-[9px] font-bold text-amber-500 uppercase tracking-widest mb-0.5">Notes</p>
+                                <p className="text-xs text-slate-600 italic font-medium">"{order.instructions}"</p>
+                              </div>
+                            )}
                             <div className="flex gap-3">
                               <button
                                 onClick={() => openCancelModal(order.orderId)}
@@ -555,6 +592,12 @@ export default function ChefPortal() {
                                 );
                               })}
                             </ul>
+                            {order.instructions && (
+                              <div className="mb-6 p-3 bg-amber-50/50 border border-amber-100 rounded-xl">
+                                <p className="text-[9px] font-bold text-amber-500 uppercase tracking-widest mb-0.5">Notes</p>
+                                <p className="text-xs text-slate-600 italic font-medium">"{getCleanInstructions(order.instructions)}"</p>
+                              </div>
+                            )}
                             <button
                               onClick={() => updateStatus(order.orderId, 'Ready')}
                               className="w-full bg-gradient-to-r from-orange-500 to-orange-600 text-white py-4 rounded-2xl font-bold text-[10px] uppercase tracking-[0.2em] shadow-lg shadow-orange-200 hover:scale-[1.02] transition-all"
@@ -657,7 +700,12 @@ export default function ChefPortal() {
                                   );
                                 })}
                               </ul>
-
+                              {order.instructions && (
+                                <div className="mb-6 p-3 bg-amber-50/50 border border-amber-100 rounded-xl">
+                                  <p className="text-[9px] font-bold text-amber-500 uppercase tracking-widest mb-0.5">Notes</p>
+                                  <p className="text-xs text-slate-600 italic font-medium">"{order.instructions}"</p>
+                                </div>
+                              )}
                               <div className="flex gap-3">
                                 <button
                                   onClick={() => openCancelModal(order.orderId)}
@@ -728,7 +776,12 @@ export default function ChefPortal() {
                                   );
                                 })}
                               </ul>
-
+                              {order.instructions && (
+                                <div className="mb-6 p-3 bg-amber-50/50 border border-amber-100 rounded-xl">
+                                  <p className="text-[9px] font-bold text-amber-500 uppercase tracking-widest mb-0.5">Notes</p>
+                                  <p className="text-xs text-slate-600 italic font-medium">"{getCleanInstructions(order.instructions)}"</p>
+                                </div>
+                              )}
                               <button
                                 onClick={() => updateStatus(order.orderId, 'Ready')}
                                 className="w-full bg-gradient-to-r from-orange-500 to-orange-600 text-white py-4 rounded-2xl font-bold text-[10px] uppercase tracking-[0.2em] shadow-lg shadow-orange-200 hover:scale-[1.02] transition-all"
@@ -775,12 +828,12 @@ export default function ChefPortal() {
               </div>
             ) : (
               /* ==================== HISTORY VIEW ==================== */
-              <div className="space-y-8 animate-fade-in">
+              <div className="space-y-8 animate-fade-in flex-1 flex flex-col h-full">
                 {/* Header */}
                 <div>
-                  <h1 className="text-4xl font-bold text-slate-800 tracking-tighter uppercase leading-none">Order History</h1>
+                  <h1 className="text-4xl font-bold text-slate-800 tracking-tighter uppercase leading-none">My History & Stats</h1>
                   <div className="flex items-center gap-4 mt-3">
-                    <p className="text-slate-400 font-bold text-[10px] uppercase tracking-[0.3em]">Complete performance overview</p>
+                    <p className="text-slate-400 font-bold text-[10px] uppercase tracking-[0.3em]">Your complete performance overview</p>
                     <div className="h-[2px] w-12 bg-slate-200"></div>
                     <button
                       onClick={loadHistory}
@@ -947,11 +1000,21 @@ export default function ChefPortal() {
                                 {order.status === 'Ready' && <PackageCheck size={16} className={sc.text} />}
                               </div>
                               <div className="min-w-0 flex-1">
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-2 flex-wrap">
                                   <span className="font-bold text-sm text-slate-800 tracking-tight">{order.orderId}</span>
                                   <span className={`px-2 py-0.5 rounded-lg text-[9px] font-bold uppercase tracking-wider ${sc.bg} ${sc.text} ${sc.border} border`}>
                                     {order.status}
                                   </span>
+                                  {order.status === 'Cancelled' && (
+                                    (() => {
+                                      const reason = getCancelReasonFromInstructions(order.instructions);
+                                      return reason ? (
+                                        <span className="px-2 py-0.5 rounded-lg text-[9px] font-bold uppercase tracking-wider bg-red-100 text-red-700 border border-red-200">
+                                          Reason: {reason}
+                                        </span>
+                                      ) : null;
+                                    })()
+                                  )}
                                 </div>
                                 <p className="text-xs text-slate-400 font-medium mt-0.5 truncate">
                                   {order.customerName} • {order.type}{order.tableNumber ? ` • Table ${order.tableNumber}` : ''}
@@ -1008,6 +1071,12 @@ export default function ChefPortal() {
                                   </li>
                                 ))}
                               </ul>
+                              {getCleanInstructions(order.instructions) && (
+                                <div className="bg-slate-50 p-3.5 rounded-xl mt-3 border border-slate-100">
+                                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Customer/Order Notes</p>
+                                  <p className="text-xs font-semibold text-slate-600 italic">"{getCleanInstructions(order.instructions)}"</p>
+                                </div>
+                              )}
                               <div className="mt-3 flex items-center gap-2 text-[10px] text-slate-400">
                                 <CalendarDays size={12} />
                                 <span>{new Date(order.timestamp).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}</span>
