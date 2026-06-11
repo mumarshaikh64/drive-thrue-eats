@@ -125,7 +125,8 @@ export default function TablesPage() {
     const activeOrder = orders.find(o => 
       o.type === 'dining' && 
       o.tableNumber == table.number && 
-      o.status !== 'Delivered'
+      o.status !== 'Delivered' &&
+      o.status !== 'Cancelled'
     );
     if (activeOrder) {
       return { 

@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { UserPlus, UserCircle, Briefcase, Mail, Phone, Trash2, ShieldCheck, Truck, ChefHat, Edit as EditIcon } from 'lucide-react';
+import { UserPlus, UserCircle, Briefcase, Mail, Phone, Trash2, ShieldCheck, Truck, ChefHat, Edit as EditIcon, Eye, X } from 'lucide-react';
 
 export default function StaffPage() {
   const [staff, setStaff] = useState<any[]>([]);
@@ -14,6 +14,12 @@ export default function StaffPage() {
   const [pin, setPin] = useState('1234');
 
   const [editingStaffSid, setEditingStaffSid] = useState<string | null>(null);
+
+  // History Modal State
+  const [historyModalOpen, setHistoryModalOpen] = useState(false);
+  const [selectedStaff, setSelectedStaff] = useState<any>(null);
+  const [staffHistory, setStaffHistory] = useState<any>(null);
+  const [historyLoading, setHistoryLoading] = useState(false);
 
   useEffect(() => {
     fetch('/api/staff')
@@ -80,6 +86,21 @@ export default function StaffPage() {
     .then(() => {
       setStaff(staff.filter(s => s.sid !== id));
     });
+  };
+
+  const openHistory = async (s: any) => {
+    setSelectedStaff(s);
+    setHistoryModalOpen(true);
+    setHistoryLoading(true);
+    try {
+      const res = await fetch(`/api/staff/history?name=${encodeURIComponent(s.name)}&role=${encodeURIComponent(s.role)}`);
+      const data = await res.json();
+      setStaffHistory(data);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setHistoryLoading(false);
+    }
   };
 
   return (
@@ -196,6 +217,9 @@ export default function StaffPage() {
                   </td>
                   <td className="py-4 px-6 text-right">
                     <div className="flex items-center justify-end gap-2">
+                      <button onClick={() => openHistory(s)} className="p-2 rounded-lg bg-gray-50 text-gray-400 hover:bg-green-50 hover:text-green-500 transition-all border border-gray-100" title="View History">
+                        <Eye size={16} />
+                      </button>
                       <button onClick={() => startEdit(s)} className="p-2 rounded-lg bg-gray-50 text-gray-400 hover:bg-blue-50 hover:text-blue-500 transition-all border border-gray-100" title="Edit Staff">
                         <EditIcon size={16} />
                       </button>
@@ -210,6 +234,85 @@ export default function StaffPage() {
           </table>
         </div>
       </div>
+      {historyModalOpen && selectedStaff && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex justify-between items-center p-6 border-b border-[#dee2e6]">
+              <div>
+                <h2 className="text-2xl font-bold text-[#212529]">{selectedStaff.name}'s History</h2>
+                <p className="text-sm text-[#6c757d] font-medium mt-1">{selectedStaff.role} • {selectedStaff.sid}</p>
+              </div>
+              <button onClick={() => setHistoryModalOpen(false)} className="text-gray-400 hover:text-gray-600 transition-colors p-2 rounded-full hover:bg-gray-100">
+                <X size={24} />
+              </button>
+            </div>
+            
+            <div className="p-6 overflow-y-auto flex-1 bg-[#FAFAFC]">
+              {historyLoading ? (
+                <div className="flex justify-center items-center py-12">
+                  <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-brand-red"></div>
+                </div>
+              ) : staffHistory ? (
+                <div className="space-y-6">
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="bg-white p-5 rounded-2xl border border-[#dee2e6] shadow-sm flex flex-col justify-center">
+                      <p className="text-sm font-bold text-[#6c757d] mb-1 uppercase tracking-wider">Total Orders</p>
+                      <p className="text-4xl font-black text-[#212529]">{staffHistory.totalOrders}</p>
+                    </div>
+                    <div className="bg-white p-5 rounded-2xl border border-[#dee2e6] shadow-sm flex flex-col justify-center">
+                      <p className="text-sm font-bold text-[#6c757d] mb-1 uppercase tracking-wider">Completed</p>
+                      <p className="text-4xl font-black text-green-600">{staffHistory.completedOrders}</p>
+                    </div>
+                    <div className="bg-white p-5 rounded-2xl border border-[#dee2e6] shadow-sm flex flex-col justify-center">
+                      <p className="text-sm font-bold text-[#6c757d] mb-1 uppercase tracking-wider">Cancelled</p>
+                      <p className="text-4xl font-black text-red-600">{staffHistory.cancelledOrders}</p>
+                    </div>
+                  </div>
+
+                  <div className="bg-white rounded-2xl border border-[#dee2e6] overflow-hidden shadow-sm">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr className="bg-gray-50 border-b border-[#dee2e6] text-xs font-bold text-gray-500 uppercase tracking-widest">
+                            <th className="py-4 px-6">Order ID</th>
+                            <th className="py-4 px-6">Date & Time</th>
+                            <th className="py-4 px-6">Status</th>
+                            <th className="py-4 px-6 text-right">Total</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-[#dee2e6]">
+                          {staffHistory.orders.length > 0 ? staffHistory.orders.map((order: any) => (
+                            <tr key={order.id} className="hover:bg-gray-50/50 transition-colors">
+                              <td className="py-4 px-6 font-bold text-sm text-[#212529]">{order.orderId}</td>
+                              <td className="py-4 px-6 text-sm text-[#6c757d] font-medium">{new Date(order.timestamp).toLocaleString()}</td>
+                              <td className="py-4 px-6">
+                                <span className={`inline-flex items-center px-3 py-1 rounded-full text-[11px] uppercase tracking-wider font-bold ${
+                                  order.status === 'Delivered' ? 'bg-green-100 text-green-800 border border-green-200' :
+                                  order.status === 'Cancelled' ? 'bg-red-100 text-red-800 border border-red-200' :
+                                  'bg-blue-100 text-blue-800 border border-blue-200'
+                                }`}>
+                                  {order.status}
+                                </span>
+                              </td>
+                              <td className="py-4 px-6 text-right font-black text-sm text-[#212529]">Rs. {order.total}</td>
+                            </tr>
+                          )) : (
+                            <tr>
+                              <td colSpan={4} className="py-12 text-center text-[#6c757d] font-medium text-lg">No orders found for this staff member.</td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-12 text-[#6c757d] font-medium">Failed to load history.</div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

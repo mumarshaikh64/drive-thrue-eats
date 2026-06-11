@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import {
   ShoppingBag, Utensils, LayoutGrid, Plus, Minus,
   Search, X, Check, ArrowLeft, LogOut, Loader2, Bell, AlertTriangle,
-  History, Eye
+  History, Eye, Lock
 } from 'lucide-react';
 import { resolveMenuImage } from '@/lib/image-helper';
 
@@ -23,6 +23,7 @@ export default function WaiterPortal() {
   const [tables, setTables] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
   const [cart, setCart] = useState<any[]>([]);
+  const [tableCarts, setTableCarts] = useState<Record<number, any[]>>({});
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(false);
   const [activeOrders, setActiveOrders] = useState<any[]>([]);
@@ -37,50 +38,43 @@ export default function WaiterPortal() {
   const [selectedHistoryOrder, setSelectedHistoryOrder] = useState<any | null>(null);
 
   const [showCart, setShowCart] = useState(false);
-  const [notifiedReadyOrders, setNotifiedReadyOrders] = useState<string[]>(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const saved = localStorage.getItem('dte_waiter_notified_ready_orders');
-        return saved ? JSON.parse(saved) : [];
-      } catch (e) {
-        console.error(e);
-      }
-    }
-    return [];
-  });
-  const [notifiedCancelledOrders, setNotifiedCancelledOrders] = useState<string[]>(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const saved = localStorage.getItem('dte_waiter_notified_cancelled_orders');
-        return saved ? JSON.parse(saved) : [];
-      } catch (e) {
-        console.error(e);
-      }
-    }
-    return [];
-  });
-  const [cancellationAlerts, setCancellationAlerts] = useState<{orderId: string, tableNumber: string | null, reason: string}[]>(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const saved = localStorage.getItem('dte_waiter_cancellation_alerts');
-        return saved ? JSON.parse(saved) : [];
-      } catch (e) {
-        console.error(e);
-      }
-    }
-    return [];
-  });
+  const [notifiedReadyOrders, setNotifiedReadyOrders] = useState<string[]>([]);
+  const [notifiedCancelledOrders, setNotifiedCancelledOrders] = useState<string[]>([]);
+  const [cancellationAlerts, setCancellationAlerts] = useState<{orderId: string, tableNumber: string | null, reason: string, cancelledBy?: string}[]>([]);
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
 
+  // Sync cancellation alerts to waiter-specific key
   useEffect(() => {
-    if (typeof window !== 'undefined') {
+    if (typeof window !== 'undefined' && waiter?.sid) {
       try {
-        localStorage.setItem('dte_waiter_cancellation_alerts', JSON.stringify(cancellationAlerts));
+        localStorage.setItem(`dte_waiter_cancellation_alerts_${waiter.sid}`, JSON.stringify(cancellationAlerts));
       } catch (e) {
         console.error(e);
       }
     }
-  }, [cancellationAlerts]);
+  }, [cancellationAlerts, waiter]);
+
+  // Load waiter-specific alerts/notifications when waiter state changes
+  useEffect(() => {
+    if (typeof window !== 'undefined' && waiter?.sid) {
+      try {
+        const savedReady = localStorage.getItem(`dte_waiter_notified_ready_orders_${waiter.sid}`);
+        setNotifiedReadyOrders(savedReady ? JSON.parse(savedReady) : []);
+
+        const savedCancelled = localStorage.getItem(`dte_waiter_notified_cancelled_orders_${waiter.sid}`);
+        setNotifiedCancelledOrders(savedCancelled ? JSON.parse(savedCancelled) : []);
+
+        const savedAlerts = localStorage.getItem(`dte_waiter_cancellation_alerts_${waiter.sid}`);
+        setCancellationAlerts(savedAlerts ? JSON.parse(savedAlerts) : []);
+      } catch (e) {
+        console.error(e);
+      }
+    } else {
+      setNotifiedReadyOrders([]);
+      setNotifiedCancelledOrders([]);
+      setCancellationAlerts([]);
+    }
+  }, [waiter]);
 
   // Payment states
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'online' | 'credit'>('cash');
@@ -116,10 +110,11 @@ export default function WaiterPortal() {
   };
 
   const handleTableSelect = (t: any) => {
-    setSelectedTable(t);
-    fetchExistingOrder(t.number);
-    setStep('menu');
-  };
+     setSelectedTable(t);
+     fetchExistingOrder(t.number);
+     setCart(tableCarts[t.number] || []);
+     setStep('menu');
+   };
 
   const loadInitialData = async () => {
     const tRes = await fetch('/api/tables');
@@ -264,9 +259,9 @@ export default function WaiterPortal() {
         playReadyAlert(order.tableNumber || 'N/A');
         setNotifiedReadyOrders(prev => {
           const next = [...prev, uniqueId];
-          if (typeof window !== 'undefined') {
+          if (typeof window !== 'undefined' && waiter?.sid) {
             try {
-              localStorage.setItem('dte_waiter_notified_ready_orders', JSON.stringify(next));
+              localStorage.setItem(`dte_waiter_notified_ready_orders_${waiter.sid}`, JSON.stringify(next));
             } catch (e) {
               console.error(e);
             }
@@ -285,6 +280,7 @@ export default function WaiterPortal() {
       const uniqueId = order.orderId || order.id;
       if (!notifiedCancelledOrders.includes(uniqueId)) {
         let reason = 'Out of Stock';
+        let cancelledBy = 'Chef';
         const inst = order.instructions || '';
         const chefCancelIdx = inst.indexOf('[CANCELLED_BY_CHEF:');
         if (chefCancelIdx > -1) {
@@ -292,6 +288,9 @@ export default function WaiterPortal() {
           if (closingIdx > -1) {
             reason = inst.substring(chefCancelIdx + '[CANCELLED_BY_CHEF:'.length, closingIdx).trim();
           }
+        } else {
+          cancelledBy = 'Waiter';
+          reason = 'Cancelled by Waiter';
         }
         
         setCancellationAlerts(prev => {
@@ -300,7 +299,7 @@ export default function WaiterPortal() {
           }
           return [
             ...prev, 
-            { orderId: uniqueId, tableNumber: order.tableNumber, reason }
+            { orderId: uniqueId, tableNumber: order.tableNumber, reason, cancelledBy }
           ];
         });
 
@@ -308,9 +307,9 @@ export default function WaiterPortal() {
 
         setNotifiedCancelledOrders(prev => {
           const next = [...prev, uniqueId];
-          if (typeof window !== 'undefined') {
+          if (typeof window !== 'undefined' && waiter?.sid) {
             try {
-              localStorage.setItem('dte_waiter_notified_cancelled_orders', JSON.stringify(next));
+              localStorage.setItem(`dte_waiter_notified_cancelled_orders_${waiter.sid}`, JSON.stringify(next));
             } catch (e) {
               console.error(e);
             }
@@ -375,13 +374,54 @@ export default function WaiterPortal() {
     }
   };
 
+  const handleLogout = () => {
+    localStorage.removeItem('dte_waiter_session');
+    setIsLoggedIn(false);
+    setWaiter(null);
+    setSid('');
+    setPin('');
+    setStep('tables');
+    setSelectedTable(null);
+    setExistingOrderItems([]);
+    setExistingOrderId(null);
+    setExistingOrderStatus(null);
+    setCart([]);
+    setTableCarts({});
+    setSearch('');
+    setWaiterTab('floor');
+    setHistoryFilterStatus('all');
+    setHistoryFilterDate('all');
+    setHistoryFilterCustomDate('');
+    setHistoryFilterOrderId('all');
+    setSelectedHistoryOrder(null);
+    setShowCart(false);
+    setPaymentMethod('cash');
+    setAccountType('');
+    setTransactionId('');
+    setPrintData(null);
+    setCreditName('');
+    setCreditCompany('');
+    setCreditPhone('');
+    setIsNotificationOpen(false);
+    setNotifiedReadyOrders([]);
+    setNotifiedCancelledOrders([]);
+    setCancellationAlerts([]);
+  };
+
   const addToCart = (item: any) => {
-    const exists = cart.find(c => c.id === item.id);
-    if (exists) {
-      setCart(cart.map(c => c.id === item.id ? { ...c, quantity: c.quantity + 1 } : c));
-    } else {
-      setCart([...cart, { ...item, quantity: 1 }]);
-    }
+    if (!selectedTable) return;
+    setCart(prev => {
+      const exists = prev.find(c => c.id === item.id);
+      const newCart = exists
+        ? prev.map(c => c.id === item.id ? { ...c, quantity: c.quantity + 1 } : c)
+        : [...prev, { ...item, quantity: 1 }];
+
+      setTableCarts(tc => ({
+        ...tc,
+        [selectedTable.number]: newCart
+      }));
+      return newCart;
+    });
   };
 
   const isBeverage = (item: any) => {
@@ -392,13 +432,22 @@ export default function WaiterPortal() {
   };
 
   const updateQty = (id: string, delta: number) => {
-    setCart(cart.map(c => {
-      if (c.id === id) {
-        const newQty = Math.max(0, c.quantity + delta);
-        return { ...c, quantity: newQty };
-      }
-      return c;
-    }).filter(c => c.quantity > 0));
+    if (!selectedTable) return;
+    setCart(prev => {
+      const newCart = prev.map(c => {
+        if (c.id === id) {
+          const newQty = Math.max(0, c.quantity + delta);
+          return { ...c, quantity: newQty };
+        }
+        return c;
+      }).filter(c => c.quantity > 0);
+
+      setTableCarts(tc => ({
+        ...tc,
+        [selectedTable.number]: newCart
+      }));
+      return newCart;
+    });
   };
 
   const updateExistingQty = async (itemId: string, itemStatus: string, delta: number) => {
@@ -531,6 +580,13 @@ export default function WaiterPortal() {
       }
 
       setCart([]);
+      if (selectedTable) {
+        setTableCarts(prev => {
+          const next = { ...prev };
+          delete next[selectedTable.number];
+          return next;
+        });
+      }
       setShowCart(false);
       await loadInitialData();
       if (selectedTable) {
@@ -768,7 +824,7 @@ export default function WaiterPortal() {
                     <div className="absolute right-0 mt-3 w-80 bg-white border border-slate-200 rounded-[2rem] shadow-2xl p-5 z-50 animate-fade-in max-h-96 overflow-y-auto">
                       <div className="flex justify-between items-center pb-3 border-b border-slate-100 mb-3">
                         <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
-                          <AlertTriangle size={14} className="text-red-500" /> Chef Rejections
+                          <AlertTriangle size={14} className="text-red-500" /> Notifications
                         </h3>
                         {cancellationAlerts.length > 0 && (
                           <button
@@ -794,7 +850,7 @@ export default function WaiterPortal() {
                                 Order {alert.orderId} {alert.tableNumber ? `(Table ${alert.tableNumber})` : ''}
                               </div>
                               <div className="text-[10px] font-medium text-red-600 leading-tight">
-                                Cancelled by Chef: "{alert.reason}"
+                                {alert.cancelledBy === 'Waiter' ? 'Cancelled by Waiter' : `Cancelled by Chef: "${alert.reason}"`}
                               </div>
                               <button
                                 onClick={() => {
@@ -815,7 +871,7 @@ export default function WaiterPortal() {
               </div>
 
               <button
-                onClick={() => { localStorage.removeItem('dte_waiter_session'); setIsLoggedIn(false); }}
+                onClick={handleLogout}
                 className="p-2.5 md:p-3 bg-slate-100 hover:bg-red-50 text-slate-400 hover:text-brand-red rounded-xl transition-all border border-slate-200 group"
               >
                 <LogOut size={18} className="group-hover:-translate-x-1 transition-transform" />
@@ -1254,29 +1310,61 @@ export default function WaiterPortal() {
                     {waiterTab === 'floor' ? (
                       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6 md:gap-8">
                         {tables.map((t, idx) => {
-                          const isOccupied = activeOrders.some((o: any) => o.tableNumber == t.number);
+                          const tableOrder = activeOrders.find((o: any) => o.tableNumber == t.number);
+                          const isOccupied = !!tableOrder;
+                          const isLocked = isOccupied && tableOrder.waiter && tableOrder.waiter !== waiter?.name;
                           return (
                             <button
                               key={t.id}
-                              onClick={() => handleTableSelect(t)}
+                              onClick={() => {
+                                if (isLocked) {
+                                  alert(`Table T-${t.number} is occupied. Waiter "${tableOrder.waiter}" is currently serving this table.`);
+                                  return;
+                                }
+                                handleTableSelect(t);
+                              }}
                               style={{ animationDelay: `${idx * 50}ms` }}
-                              className={`relative bg-white aspect-square rounded-[2rem] md:rounded-[3.5rem] border-2 transition-all p-4 md:p-10 flex flex-col items-center justify-center gap-3 md:gap-5 shadow-sm group animate-slide-up ${isOccupied
-                                ? 'border-orange-500 ring-4 md:ring-8 ring-orange-500/5 shadow-orange-500/10'
-                                : 'border-transparent hover:border-brand-red hover:shadow-2xl hover:shadow-brand-red/10'
-                                }`}
+                              className={`relative bg-white aspect-square rounded-[2rem] md:rounded-[3.5rem] border-2 transition-all p-4 md:p-10 flex flex-col items-center justify-center gap-3 md:gap-5 shadow-sm group animate-slide-up ${
+                                isLocked
+                                  ? 'border-red-300 bg-red-50/10 cursor-not-allowed opacity-90'
+                                  : isOccupied
+                                  ? 'border-orange-500 ring-4 md:ring-8 ring-orange-500/5 shadow-orange-500/10'
+                                  : 'border-transparent hover:border-brand-red hover:shadow-2xl hover:shadow-brand-red/10'
+                              }`}
                             >
                               {isOccupied && (
                                 <div className="absolute top-4 right-4 md:top-8 md:right-8">
-                                  <div className="bg-orange-500 text-white text-[7px] md:text-[8px] font-bold px-2 md:px-3 py-0.5 md:py-1 rounded-full uppercase tracking-widest shadow-lg shadow-orange-500/30">Busy</div>
+                                  <div className={`text-[7px] md:text-[8px] font-bold px-2 md:px-3 py-0.5 md:py-1 rounded-full uppercase tracking-widest shadow-lg ${
+                                    isLocked
+                                      ? 'bg-red-500 text-white shadow-red-500/30'
+                                      : 'bg-orange-500 text-white shadow-orange-500/30'
+                                  }`}>
+                                    {isLocked ? 'Locked' : 'Busy'}
+                                  </div>
                                 </div>
                               )}
-                              <div className={`p-4 md:p-6 rounded-xl md:rounded-[2rem] transition-all transform group-hover:scale-110 group-hover:rotate-6 ${isOccupied ? 'bg-orange-50 text-orange-500' : 'bg-slate-50 text-slate-300 group-hover:bg-brand-red group-hover:text-white'
-                                }`}>
-                                <Utensils size={24} className="md:w-[32px] md:h-[32px]" />
+                              <div className={`p-4 md:p-6 rounded-xl md:rounded-[2rem] transition-all transform group-hover:scale-110 group-hover:rotate-6 ${
+                                isLocked
+                                  ? 'bg-red-50 text-red-500'
+                                  : isOccupied
+                                  ? 'bg-orange-50 text-orange-500'
+                                  : 'bg-slate-50 text-slate-300 group-hover:bg-brand-red group-hover:text-white'
+                              }`}>
+                                {isLocked ? (
+                                  <Lock size={24} className="md:w-[32px] md:h-[32px]" />
+                                ) : (
+                                  <Utensils size={24} className="md:w-[32px] md:h-[32px]" />
+                                )}
                               </div>
                               <div className="text-center">
                                 <p className={`font-bold text-xl md:text-3xl tracking-tighter ${isOccupied ? 'text-orange-600' : 'text-slate-800'}`}>T-{t.number}</p>
-                                <span className="text-[8px] md:text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">{t.seats} SEATS</span>
+                                {isLocked ? (
+                                  <span className="text-[8px] md:text-[10px] font-bold text-red-500 uppercase tracking-[0.2em] animate-pulse">By {tableOrder.waiter}</span>
+                                ) : isOccupied ? (
+                                  <span className="text-[8px] md:text-[10px] font-bold text-orange-500 uppercase tracking-[0.2em]">By You</span>
+                                ) : (
+                                  <span className="text-[8px] md:text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">{t.seats} SEATS</span>
+                                )}
                               </div>
                             </button>
                           );
@@ -1538,9 +1626,14 @@ export default function WaiterPortal() {
                       </div>
                     </div>
 
+
+                  </div>
+                )}
+              </div>
+            )}
                     {/* Floating Side Panel for Order Tracking */}
                     {showCart && (
-                      <div className="absolute inset-0 z-[100] flex justify-end animate-fade-in">
+                      <div className="fixed inset-0 z-[100] flex justify-end animate-fade-in">
                         <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setShowCart(false)}></div>
                         <div className="w-full max-w-md bg-white h-full shadow-2xl relative animate-slide-left flex flex-col">
                           <div className="p-8 pb-6 border-b border-slate-100 flex items-center justify-between">
@@ -1823,6 +1916,14 @@ export default function WaiterPortal() {
                                       alert(paymentMethod === 'credit' ? `Credit recorded for ${creditName}!` : "Bill Finalized!");
                                       setTimeout(() => {
                                         window.print();
+                                        setCart([]);
+                                        if (selectedTable) {
+                                          setTableCarts(prev => {
+                                            const next = { ...prev };
+                                            delete next[selectedTable.number];
+                                            return next;
+                                          });
+                                        }
                                         setStep('tables');
                                         setShowCart(false);
                                         setPaymentMethod('cash');
@@ -1906,6 +2007,14 @@ export default function WaiterPortal() {
                                           });
                                           if (res.ok) {
                                             alert("Order Cancelled successfully!");
+                                            setCart([]);
+                                            if (selectedTable) {
+                                              setTableCarts(prev => {
+                                                const next = { ...prev };
+                                                delete next[selectedTable.number];
+                                                return next;
+                                              });
+                                            }
                                             setStep('tables');
                                             setShowCart(false);
                                           } else {
@@ -1943,10 +2052,6 @@ export default function WaiterPortal() {
                         </div>
                       </div>
                     )}
-                  </div>
-                )}
-              </div>
-            )}
           </main>
         </div>
       )}

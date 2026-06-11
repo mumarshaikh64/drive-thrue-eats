@@ -802,6 +802,7 @@ export default function ChefPortal() {
                                 <span className="font-bold text-xl text-slate-800 tracking-tighter line-clamp-1">{order.orderId}</span>
                                 <p className="text-[10px] font-bold text-orange-500 uppercase tracking-widest mt-1">
                                   {order.tableNumber ? `Dining • Table ${order.tableNumber}` : `${order.type} order`}
+                                  {order.waiter && ` • Waiter: ${order.waiter}`}
                                 </p>
                               </div>
                               <div className="w-10 h-10 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-400 border border-slate-100 group-hover:bg-orange-500 group-hover:text-white transition-colors">
@@ -887,7 +888,10 @@ export default function ChefPortal() {
                             <div className="flex justify-between items-start mb-6">
                               <div>
                                 <span className="font-bold text-xl text-slate-800 tracking-tighter line-clamp-1">{order.orderId}</span>
-                                <p className="text-[10px] font-bold text-orange-500 uppercase tracking-widest mt-1">Cooking • {order.chef || 'Chef'}</p>
+                                <p className="text-[10px] font-bold text-orange-500 uppercase tracking-widest mt-1">
+                                  Cooking • {order.chef || 'Chef'}
+                                  {order.waiter && ` • Waiter: ${order.waiter}`}
+                                </p>
                               </div>
                             </div>
                             <ul className="space-y-2 mb-8">
@@ -1007,6 +1011,7 @@ export default function ChefPortal() {
                                   <span className="font-bold text-xl text-slate-800 tracking-tighter line-clamp-1">{order.orderId}</span>
                                   <p className="text-[10px] font-bold text-orange-500 uppercase tracking-widest mt-1">
                                     {order.tableNumber ? `Dining • Table ${order.tableNumber}` : `${order.type} order`}
+                                    {order.waiter && ` • Waiter: ${order.waiter}`}
                                   </p>
                                 </div>
                                 <div className="w-10 h-10 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-400 border border-slate-100 group-hover:bg-orange-500 group-hover:text-white transition-colors">
@@ -1096,7 +1101,10 @@ export default function ChefPortal() {
                               <div className="flex justify-between items-start mb-6">
                                 <div>
                                   <span className="font-bold text-xl text-slate-800 tracking-tighter line-clamp-1">{order.orderId}</span>
-                                  <p className="text-[10px] font-bold text-orange-500 uppercase tracking-widest mt-1">Cooking • {order.chef || 'Chef'}</p>
+                                  <p className="text-[10px] font-bold text-orange-500 uppercase tracking-widest mt-1">
+                                    Cooking • {order.chef || 'Chef'}
+                                    {order.waiter && ` • Waiter: ${order.waiter}`}
+                                  </p>
                                 </div>
                               </div>
 

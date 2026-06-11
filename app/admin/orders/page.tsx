@@ -35,7 +35,7 @@ export default function OrdersPage() {
     }
     return [];
   });
-  const [cancellationAlerts, setCancellationAlerts] = useState<{orderId: string, tableNumber: string | null, reason: string}[]>(() => {
+  const [cancellationAlerts, setCancellationAlerts] = useState<{orderId: string, tableNumber: string | null, reason: string, cancelledBy?: string}[]>(() => {
     if (typeof window !== 'undefined') {
       try {
         const saved = localStorage.getItem('dte_cancellation_alerts');
@@ -87,12 +87,12 @@ export default function OrdersPage() {
           }
           setOrders(data);
 
-          // Check for newly chef-cancelled orders
-          const chefCancelledOrders = data.filter((o: any) => o.status === 'Cancelled' && o.instructions?.startsWith('[CANCELLED_BY_CHEF:'));
+          // Check for newly cancelled orders (either by Chef or Waiter)
+          const cancelledOrders = data.filter((o: any) => o.status === 'Cancelled');
           
           if (isFirstLoadRef.current) {
             // First load: just record existing cancelled orders to prevent alarm bells
-            const initialCancelledIds = chefCancelledOrders.map((o: any) => o.orderId || o.id);
+            const initialCancelledIds = cancelledOrders.map((o: any) => o.orderId || o.id);
             setNotifiedCancelledOrders(initialCancelledIds);
             if (typeof window !== 'undefined') {
               try {
@@ -103,15 +103,22 @@ export default function OrdersPage() {
             }
           } else {
             // Subsequent loads: alert for any new cancelled order
-            chefCancelledOrders.forEach((order: any) => {
+            cancelledOrders.forEach((order: any) => {
               const uniqueId = order.orderId || order.id;
               setNotifiedCancelledOrders(prevNotified => {
                 if (!prevNotified.includes(uniqueId)) {
                   let reason = 'Out of Stock';
+                  let cancelledBy = 'Chef';
                   const inst = order.instructions || '';
-                  const idx = inst.indexOf(']');
-                  if (idx > -1) {
-                    reason = inst.substring('[CANCELLED_BY_CHEF:'.length, idx).trim();
+                  const chefCancelIdx = inst.indexOf('[CANCELLED_BY_CHEF:');
+                  if (chefCancelIdx > -1) {
+                    const closingIdx = inst.indexOf(']', chefCancelIdx);
+                    if (closingIdx > -1) {
+                      reason = inst.substring(chefCancelIdx + '[CANCELLED_BY_CHEF:'.length, closingIdx).trim();
+                    }
+                  } else {
+                    cancelledBy = 'Waiter';
+                    reason = 'Cancelled by Waiter';
                   }
 
                   // Add to cancellationAlerts with duplicate checking
@@ -121,7 +128,7 @@ export default function OrdersPage() {
                     }
                     return [
                       ...prevAlerts,
-                      { orderId: uniqueId, tableNumber: order.tableNumber, reason }
+                      { orderId: uniqueId, tableNumber: order.tableNumber, reason, cancelledBy }
                     ];
                   });
 
@@ -350,7 +357,7 @@ export default function OrdersPage() {
         </div>
         
         <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto">
-          {/* Chef Cancellation Notification Dropdown */}
+          {/* Cancellation Notification Dropdown */}
           <div className="relative">
             <button
               onClick={() => setIsNotificationOpen(!isNotificationOpen)}
@@ -359,7 +366,7 @@ export default function OrdersPage() {
                   ? 'bg-red-50 border-red-200 text-red-500 hover:bg-red-100 shadow-sm shadow-red-100/50 animate-pulse' 
                   : 'bg-gray-50 border-gray-200 text-gray-400 hover:bg-gray-100'
               }`}
-              title="Chef Rejection Notifications"
+              title="Cancellation Notifications"
             >
               <Bell size={18} />
               {cancellationAlerts.length > 0 && (
@@ -375,7 +382,7 @@ export default function OrdersPage() {
                 <div className="absolute right-0 mt-3 w-80 bg-white border border-gray-100 rounded-[2rem] shadow-2xl p-5 z-50 animate-fade-in max-h-96 overflow-y-auto">
                   <div className="flex justify-between items-center pb-3 border-b border-gray-100 mb-3">
                     <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest flex items-center gap-1.5">
-                      <AlertTriangle size={14} className="text-red-500" /> Chef Rejections
+                      <AlertTriangle size={14} className="text-red-500" /> Notifications
                     </h3>
                     {cancellationAlerts.length > 0 && (
                       <button
@@ -401,7 +408,7 @@ export default function OrdersPage() {
                             Order {alert.orderId} {alert.tableNumber ? `(Table ${alert.tableNumber})` : ''}
                           </div>
                           <div className="text-[10px] font-medium text-red-600 leading-tight">
-                            Cancelled by Chef: "{alert.reason}"
+                            {alert.cancelledBy === 'Waiter' ? 'Cancelled by Waiter' : `Cancelled by Chef: "${alert.reason}"`}
                           </div>
                           <button
                             onClick={() => {

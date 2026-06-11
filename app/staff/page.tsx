@@ -536,7 +536,7 @@ export default function StaffPortal() {
             <h1 className="text-4xl font-bold text-brand-text tracking-tighter uppercase">Table Occupancy</h1>
             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-6">
               {tables.map(table => {
-                const isOccupied = orders.some(o => o.type === 'dining' && o.tableNumber == table.number && o.status !== 'Delivered') ||
+                const isOccupied = orders.some(o => o.type === 'dining' && o.tableNumber == table.number && o.status !== 'Delivered' && o.status !== 'Cancelled') ||
                                   reservations.some(r => {
                                     if (r.tableId !== table.id) return false;
                                     const now = new Date();

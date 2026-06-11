@@ -7,7 +7,7 @@ export default function KitchenPage() {
   const [staff, setStaff] = useState<any[]>([]);
   const [lastOrderId, setLastOrderId] = useState<string | null>(null);
   const [notifiedCancelledOrders, setNotifiedCancelledOrders] = useState<string[]>([]);
-  const [cancellationAlerts, setCancellationAlerts] = useState<{orderId: string, tableNumber: string | null, reason: string}[]>([]);
+  const [cancellationAlerts, setCancellationAlerts] = useState<{orderId: string, tableNumber: string | null, reason: string, cancelledBy?: string}[]>([]);
   const isFirstLoadRef = useRef(true);
 
   const loadData = async () => {
@@ -27,31 +27,38 @@ export default function KitchenPage() {
       }
       setOrders(ordData);
 
-      // Check for newly chef-cancelled orders
+      // Check for newly cancelled orders
       if (Array.isArray(ordData)) {
-        const chefCancelledOrders = ordData.filter((o: any) => o.status === 'Cancelled' && o.instructions?.startsWith('[CANCELLED_BY_CHEF:'));
+        const cancelledOrders = ordData.filter((o: any) => o.status === 'Cancelled');
         
         if (isFirstLoadRef.current) {
           // First load: just record existing cancelled orders to prevent mount alarms
-          const initialCancelledIds = chefCancelledOrders.map((o: any) => o.orderId || o.id);
+          const initialCancelledIds = cancelledOrders.map((o: any) => o.orderId || o.id);
           setNotifiedCancelledOrders(initialCancelledIds);
         } else {
           // Subsequent loads: notify for new cancelled orders
-          chefCancelledOrders.forEach((order: any) => {
+          cancelledOrders.forEach((order: any) => {
             const uniqueId = order.orderId || order.id;
             setNotifiedCancelledOrders(prevNotified => {
               if (!prevNotified.includes(uniqueId)) {
                 let reason = 'Out of Stock';
+                let cancelledBy = 'Chef';
                 const inst = order.instructions || '';
-                const idx = inst.indexOf(']');
-                if (idx > -1) {
-                  reason = inst.substring('[CANCELLED_BY_CHEF:'.length, idx).trim();
+                const chefCancelIdx = inst.indexOf('[CANCELLED_BY_CHEF:');
+                if (chefCancelIdx > -1) {
+                  const closingIdx = inst.indexOf(']', chefCancelIdx);
+                  if (closingIdx > -1) {
+                    reason = inst.substring(chefCancelIdx + '[CANCELLED_BY_CHEF:'.length, closingIdx).trim();
+                  }
+                } else {
+                  cancelledBy = 'Waiter';
+                  reason = 'Cancelled by Waiter';
                 }
 
                 // Add to cancellationAlerts
                 setCancellationAlerts(prevAlerts => [
                   ...prevAlerts,
-                  { orderId: order.orderId || order.id, tableNumber: order.tableNumber, reason }
+                  { orderId: order.orderId || order.id, tableNumber: order.tableNumber, reason, cancelledBy }
                 ]);
 
                 // Play warning audio
@@ -92,12 +99,12 @@ export default function KitchenPage() {
       {cancellationAlerts.length > 0 && (
         <div className="mb-6 bg-red-600 text-white p-5 rounded-2xl flex flex-col gap-3 shadow-lg border border-red-500/20">
           <h4 className="font-bold text-xs uppercase tracking-wider flex items-center gap-2">
-            <AlertTriangle size={16} /> Chef Rejection Alerts (Order Cannot Be Made)
+            <AlertTriangle size={16} /> Cancellation / Rejection Alerts
           </h4>
           <div className="space-y-2">
             {cancellationAlerts.map((alert, idx) => (
               <div key={idx} className="flex items-center justify-between gap-4 font-bold text-xs uppercase tracking-wider bg-red-700/30 px-4 py-2.5 rounded-xl border border-white/10">
-                <span>⚠️ Order {alert.orderId} {alert.tableNumber ? `(Table ${alert.tableNumber})` : ''} was CANCELLED by Chef: "{alert.reason}"</span>
+                <span>⚠️ Order {alert.orderId} {alert.tableNumber ? `(Table ${alert.tableNumber})` : ''} was {alert.cancelledBy === 'Waiter' ? 'CANCELLED by Waiter' : `CANCELLED by Chef: "${alert.reason}"`}</span>
                 <button 
                   onClick={() => setCancellationAlerts(prev => prev.filter((_, i) => i !== idx))}
                   className="underline text-[10px] opacity-80 hover:opacity-100 uppercase"
