@@ -39,6 +39,16 @@ export default function FeedbackPage() {
   };
 
   const handleNext = () => {
+    if (currentStep === 1) {
+      if (!formData.fullName.trim() || !formData.mobileNumber.trim()) {
+        alert("Please enter Full Name and Mobile Number!");
+        return;
+      }
+      if (formData.mobileNumber.length !== 10) {
+        alert("Mobile Number must be exactly 10 digits!");
+        return;
+      }
+    }
     if (currentStep < 3) setCurrentStep(prev => prev + 1);
   };
 
@@ -48,7 +58,14 @@ export default function FeedbackPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.fullName.trim()) return;
+    if (!formData.fullName.trim() || !formData.mobileNumber.trim()) {
+      alert("Please enter Full Name and Mobile Number!");
+      return;
+    }
+    if (formData.mobileNumber.length !== 10) {
+      alert("Mobile Number must be exactly 10 digits!");
+      return;
+    }
     setSubmitted(true);
   };
 
@@ -136,9 +153,10 @@ export default function FeedbackPage() {
                     <input
                       type="tel"
                       name="mobileNumber"
-                      placeholder="+91 ..."
+                      placeholder="10-digit mobile number"
                       value={formData.mobileNumber}
-                      onChange={(e) => handleChange('mobileNumber', e.target.value)}
+                      maxLength={10}
+                      onChange={(e) => handleChange('mobileNumber', e.target.value.replace(/\D/g, '').slice(0, 10))}
                       className="w-full bg-brand-bg border border-brand-border rounded-2xl px-6 py-4 text-brand-text placeholder-brand-muted focus:outline-none focus:ring-4 focus:ring-brand-red/5 focus:border-brand-red transition-all font-bold text-base"
                     />
                   </div>

@@ -1818,7 +1818,8 @@ export default function WaiterPortal() {
                                         type="text"
                                         placeholder="Numeric Phone"
                                         value={creditPhone}
-                                        onChange={(e) => setCreditPhone(e.target.value)}
+                                        maxLength={10}
+                                        onChange={(e) => setCreditPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
                                         className="w-full bg-white border border-orange-200/60 rounded-xl px-4 py-2.5 text-[10px] font-bold outline-none focus:border-orange-400/70 shadow-sm transition-all"
                                       />
                                     </div>
@@ -1868,9 +1869,15 @@ export default function WaiterPortal() {
                                     alert("Please enter Account Type and Transaction ID.");
                                     return;
                                   }
-                                  if (paymentMethod === 'credit' && (!creditName.trim() || !creditCompany.trim() || !creditPhone.trim())) {
-                                    alert("Please fill in Credit customer's Full Name, Company Name, and Phone Number.");
-                                    return;
+                                  if (paymentMethod === 'credit') {
+                                    if (!creditName.trim() || !creditCompany.trim() || !creditPhone.trim()) {
+                                      alert("Please fill in Credit customer's Full Name, Company Name, and Phone Number.");
+                                      return;
+                                    }
+                                    if (creditPhone.length !== 10) {
+                                      alert("Credit Phone Number must be exactly 10 digits!");
+                                      return;
+                                    }
                                   }
                                   if (confirm("Finalize transaction and clear table status?")) {
                                     try {
@@ -2271,7 +2278,7 @@ export default function WaiterPortal() {
               {selectedHistoryOrder.instructions && (
                 <div className="p-5 bg-amber-50/50 border border-amber-100 rounded-2xl text-xs text-left">
                   <p className="font-bold text-amber-600 uppercase tracking-widest text-[9px] mb-1">Notes & Instructions</p>
-                  <p className="text-slate-600 italic font-medium">"{selectedHistoryOrder.instructions}"</p>
+                  <p className="text-slate-600 italic font-medium">&ldquo;{selectedHistoryOrder.instructions}&rdquo;</p>
                 </div>
               )}
             </div>

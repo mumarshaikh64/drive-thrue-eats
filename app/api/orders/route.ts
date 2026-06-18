@@ -6,6 +6,24 @@ import path from 'path';
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
+    
+    const orderId = searchParams.get('orderId');
+    if (orderId) {
+      const order = await prisma.order.findUnique({
+        where: { orderId: orderId }
+      });
+      if (!order) {
+        return NextResponse.json({ error: 'Order not found' }, { status: 404 });
+      }
+      let parsedItems = [];
+      try {
+        parsedItems = typeof order.items === 'string' ? JSON.parse(order.items) : order.items;
+      } catch (e) {
+        parsedItems = [];
+      }
+      return NextResponse.json({ ...order, items: parsedItems });
+    }
+
     const status = searchParams.get('status');
     const limit = searchParams.get('limit') ? parseInt(searchParams.get('limit')!) : 1000;
 

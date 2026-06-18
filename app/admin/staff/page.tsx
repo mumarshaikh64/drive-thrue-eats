@@ -38,6 +38,10 @@ export default function StaffPage() {
   const saveStaff = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name || !role) return;
+    if (phone && phone.length !== 10) {
+      alert("Phone number must be exactly 10 digits!");
+      return;
+    }
     
     if (editingStaffSid) {
       // UPDATE Mode
@@ -160,10 +164,10 @@ export default function StaffPage() {
             <input 
               type="tel" 
               value={phone} 
-              maxLength={11}
-              onChange={e => setPhone(e.target.value.replace(/\D/g, '').slice(0, 11))} 
+              maxLength={10}
+              onChange={e => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))} 
               className="w-full bg-[#FAFAFC] border border-[#dee2e6] rounded-lg px-4 py-2.5 text-sm" 
-              placeholder="e.g. 03001234567" 
+              placeholder="e.g. 9876543210" 
             />
           </div>
           <div className="md:col-span-2 lg:col-span-3 mt-2">
@@ -239,7 +243,7 @@ export default function StaffPage() {
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-200">
             <div className="flex justify-between items-center p-6 border-b border-[#dee2e6]">
               <div>
-                <h2 className="text-2xl font-bold text-[#212529]">{selectedStaff.name}'s History</h2>
+                <h2 className="text-2xl font-bold text-[#212529]">{selectedStaff.name}&apos;s History</h2>
                 <p className="text-sm text-[#6c757d] font-medium mt-1">{selectedStaff.role} • {selectedStaff.sid}</p>
               </div>
               <button onClick={() => setHistoryModalOpen(false)} className="text-gray-400 hover:text-gray-600 transition-colors p-2 rounded-full hover:bg-gray-100">

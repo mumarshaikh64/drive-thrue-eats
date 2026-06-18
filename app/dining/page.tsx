@@ -64,6 +64,12 @@ export default function DiningPage() {
     e.preventDefault();
     if (!selectedTable) return;
 
+    if (phone.length !== 10) {
+      setToast("Phone number must be exactly 10 digits!");
+      setTimeout(() => setToast(''), 3000);
+      return;
+    }
+
     // Double check on frontend
     const alreadyBooked = dbReservations.some(
       r => r.tableId === selectedTable.id && r.date === date && r.time === time
@@ -256,7 +262,7 @@ export default function DiningPage() {
                   <label className="text-[10px] font-bold text-brand-muted uppercase tracking-widest ml-2">Phone</label>
                   <div className="relative">
                     <Phone size={18} className="absolute left-5 top-1/2 -translate-y-1/2 text-brand-red" />
-                    <input type="tel" required value={phone} onChange={e=>setPhone(e.target.value)} className="w-full bg-brand-bg border border-brand-border rounded-2xl pl-12 pr-6 py-4 text-brand-text placeholder-brand-muted focus:outline-none focus:ring-4 focus:ring-brand-red/5 focus:border-brand-red transition-all font-medium" placeholder="+91 ..." />
+                    <input type="tel" required value={phone} maxLength={10} onChange={e=>setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))} className="w-full bg-brand-bg border border-brand-border rounded-2xl pl-12 pr-6 py-4 text-brand-text placeholder-brand-muted focus:outline-none focus:ring-4 focus:ring-brand-red/5 focus:border-brand-red transition-all font-medium" placeholder="10-digit phone number" />
                   </div>
                 </div>
 

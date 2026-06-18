@@ -41,6 +41,7 @@ export default function CartPage() {
   const [discount, setDiscount] = useState(0);
   const [couponError, setCouponError] = useState('');
   const [orderPlaced, setOrderPlaced] = useState(false);
+  const [placedOrder, setPlacedOrder] = useState<any>(null);
 
   // Form States
   const [orderType, setOrderType] = useState<'delivery' | 'pickup' | 'dining'>('delivery');
@@ -174,7 +175,7 @@ export default function CartPage() {
       return;
     }
     if (!name.trim() || !phone.trim()) return alert("Please enter Name and Phone!");
-    if (phone.length !== 11) return alert("Mobile Number must be exactly 11 digits!");
+    if (phone.length !== 10) return alert("Mobile Number must be exactly 10 digits!");
     if (orderType === 'dining' && !selectedTable) return alert("Please select a Table Number!");
 
     const isOnlinePayment = paymentMethod !== 'Credit' && paymentMethod !== 'Cash On Delivery' && paymentMethod !== '';
@@ -191,8 +192,8 @@ export default function CartPage() {
       if (!creditName.trim() || !creditCompany.trim() || !creditPhone.trim()) {
         return alert("Please fill in all Credit form fields (Full Name, Company Name, and Phone Number)!");
       }
-      if (creditPhone.length !== 11) {
-        return alert("Credit Phone Number must be exactly 11 digits!");
+      if (creditPhone.length !== 10) {
+        return alert("Credit Phone Number must be exactly 10 digits!");
       }
     }
 
@@ -227,6 +228,7 @@ export default function CartPage() {
     .then(async (res) => {
       const data = await res.json();
       if (res.ok) {
+        setPlacedOrder(data.order);
         setOrderPlaced(true);
         clearCart();
         localStorage.removeItem('savedCoupon');
@@ -241,18 +243,104 @@ export default function CartPage() {
   };
 
   if (orderPlaced) {
+    const orderItems = placedOrder 
+      ? (typeof placedOrder.items === 'string' ? JSON.parse(placedOrder.items) : placedOrder.items)
+      : [];
+
     return (
-      <div className="min-h-screen bg-white flex flex-col items-center justify-center text-center px-4">
-        <div className="w-24 h-24 bg-green-100 text-green-600 rounded-full flex items-center justify-center mb-8 animate-bounce transition-all">
-          <CheckCircle2 size={48} />
+      <div className="min-h-screen bg-slate-50/50 pt-24 lg:pt-32 pb-20 flex flex-col items-center justify-center px-4">
+        <div className="max-w-2xl w-full bg-white rounded-[2.5rem] p-8 md:p-12 border border-slate-100 shadow-premium text-center">
+          <div className="w-20 h-20 bg-green-50 text-green-500 rounded-full flex items-center justify-center mb-6 mx-auto animate-bounce transition-all">
+            <CheckCircle2 size={40} />
+          </div>
+          <h1 className="text-3xl lg:text-5xl font-bold text-brand-text mb-2 tracking-tighter">Order <span className="text-brand-red">Confirmed!</span></h1>
+          <p className="text-slate-400 font-medium text-sm max-w-md mx-auto mb-8">
+            Your legendary meal is being prepared. Grab a seat, relax, and get ready for a taste explosion!
+          </p>
+
+          {placedOrder && (
+            <div className="text-left bg-slate-50 border border-slate-100 rounded-3xl p-6 md:p-8 space-y-6">
+              {/* Receipt Header */}
+              <div className="flex flex-wrap justify-between items-center gap-4 border-b border-slate-200/60 pb-4">
+                <div>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Order Number</span>
+                  <span className="text-xl font-black text-slate-800 tracking-tight uppercase">{placedOrder.orderId}</span>
+                </div>
+                <div className="text-right">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Order Status</span>
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest bg-amber-50 text-amber-600 border border-amber-100 animate-pulse">
+                    {placedOrder.status || 'Pending'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Customer and Order Type Details */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs font-semibold text-slate-600 border-b border-slate-200/60 pb-6">
+                <div className="space-y-2">
+                  <p><span className="text-slate-400 uppercase tracking-wider text-[9px] block">Customer Name:</span> {placedOrder.customerName}</p>
+                  <p><span className="text-slate-400 uppercase tracking-wider text-[9px] block">Contact Number:</span> {placedOrder.phone}</p>
+                  {placedOrder.email && (
+                    <p><span className="text-slate-400 uppercase tracking-wider text-[9px] block">Email:</span> {placedOrder.email}</p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <p><span className="text-slate-400 uppercase tracking-wider text-[9px] block">Service Type:</span> <span className="capitalize">{placedOrder.type}</span></p>
+                  {placedOrder.type === 'dining' && placedOrder.tableNumber && (
+                    <p><span className="text-slate-400 uppercase tracking-wider text-[9px] block">Table Spot:</span> Table {placedOrder.tableNumber}</p>
+                  )}
+                  {placedOrder.type === 'delivery' && (
+                    <>
+                      <p><span className="text-slate-400 uppercase tracking-wider text-[9px] block">Delivery Area:</span> {placedOrder.deliveryArea}</p>
+                      <p className="line-clamp-2"><span className="text-slate-400 uppercase tracking-wider text-[9px] block">Address:</span> {placedOrder.address}</p>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {/* Items List */}
+              <div className="space-y-4">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Items Ordered</span>
+                <div className="space-y-3 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
+                  {orderItems.map((item: any, idx: number) => (
+                    <div key={idx} className="flex justify-between items-center bg-white p-3 rounded-2xl border border-slate-100 shadow-sm">
+                      <div>
+                        <h4 className="font-bold text-xs text-slate-800 uppercase tracking-tight">{item.quantity} x {item.name}</h4>
+                        <p className="text-[10px] text-slate-400 font-mono">₹{item.price} each</p>
+                      </div>
+                      <span className="font-bold text-sm text-slate-700 font-mono">₹{item.price * item.quantity}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Payment Details & Total */}
+              <div className="pt-4 border-t border-slate-200/60 flex flex-col md:flex-row md:justify-between gap-4">
+                <div className="text-xs text-slate-600 font-semibold space-y-1">
+                  <p><span className="text-slate-400 uppercase tracking-wider text-[9px] block">Payment Method:</span> {placedOrder.paymentMethod}</p>
+                  {placedOrder.transactionNumber && (
+                    <p><span className="text-slate-400 uppercase tracking-wider text-[9px] block">Trx ID:</span> {placedOrder.transactionNumber}</p>
+                  )}
+                </div>
+                <div className="text-right flex flex-col justify-end">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Grand Total</span>
+                  <span className="text-2xl font-black text-brand-red font-mono">₹{placedOrder.total}</span>
+                </div>
+              </div>
+
+              {/* Order Notes / Instructions */}
+              {placedOrder.instructions && (
+                <div className="p-4 bg-orange-50/20 border border-orange-100/50 rounded-2xl text-xs font-semibold text-slate-600">
+                  <span className="text-[9px] font-bold text-orange-500 uppercase tracking-widest block mb-1">Instructions for Chef</span>
+                  <span className="italic">&ldquo;{placedOrder.instructions}&rdquo;</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          <Link href="/" className="btn-primary mt-10 w-full py-5 text-center text-sm font-bold uppercase tracking-wider shadow-premium flex items-center justify-center gap-2">
+            ORDER MORE FOOD
+          </Link>
         </div>
-        <h1 className="text-4xl lg:text-6xl font-bold text-brand-text mb-4 tracking-tighter">Order <span className="text-brand-red">Confirmed!</span></h1>
-        <p className="text-brand-muted max-w-md font-medium text-lg leading-relaxed">
-          Your legendary meal is being prepared. Grab a seat, relax, and get ready for a taste explosion!
-        </p>
-        <Link href="/" className="btn-primary mt-12 py-5 px-12 text-lg shadow-premium">
-          ORDER MORE FOOD
-        </Link>
       </div>
     );
   }
@@ -367,8 +455,8 @@ export default function CartPage() {
                         <input 
                           type="tel" 
                           value={phone} 
-                          onChange={e => setPhone(e.target.value.replace(/\D/g, '').slice(0, 11))} 
-                          maxLength={11} 
+                          onChange={e => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))} 
+                          maxLength={10} 
                           placeholder="e.g. 9876543210" 
                           className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-6 py-4 text-slate-800 placeholder-slate-300 focus:outline-none focus:ring-4 focus:ring-brand-red/5 focus:border-brand-red/20 transition-all font-medium shadow-sm" 
                         />
@@ -385,8 +473,8 @@ export default function CartPage() {
                     <input 
                       type="tel" 
                       value={phone} 
-                      onChange={e => setPhone(e.target.value.replace(/\D/g, '').slice(0, 11))} 
-                      maxLength={11} 
+                      onChange={e => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))} 
+                      maxLength={10} 
                       placeholder="e.g. 9876543210" 
                       className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-6 py-4 text-slate-800 placeholder-slate-300 focus:outline-none focus:ring-4 focus:ring-brand-red/5 focus:border-brand-red/20 transition-all font-medium shadow-sm" 
                     />
@@ -468,8 +556,8 @@ export default function CartPage() {
                           type="tel"
                           required
                           value={creditPhone}
-                          onChange={e => setCreditPhone(e.target.value.replace(/\D/g, '').slice(0, 11))}
-                          maxLength={11}
+                          onChange={e => setCreditPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                          maxLength={10}
                           placeholder="e.g. 9876543210"
                           className="w-full bg-white border border-slate-200 rounded-xl px-5 py-3.5 text-slate-800 font-medium placeholder:text-slate-300 focus:outline-none focus:border-brand-red transition-all shadow-sm"
                         />

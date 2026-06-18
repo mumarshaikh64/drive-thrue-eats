@@ -844,7 +844,7 @@ export default function ChefPortal() {
                             {order.instructions && (
                               <div className="mb-6 p-3 bg-amber-50/50 border border-amber-100 rounded-xl">
                                 <p className="text-[9px] font-bold text-amber-500 uppercase tracking-widest mb-0.5">Notes</p>
-                                <p className="text-xs text-slate-600 italic font-medium">"{order.instructions}"</p>
+                                <p className="text-xs text-slate-600 italic font-medium">&ldquo;{order.instructions}&rdquo;</p>
                               </div>
                             )}
                             <div className="flex gap-3">
@@ -919,7 +919,7 @@ export default function ChefPortal() {
                             {order.instructions && (
                               <div className="mb-6 p-3 bg-amber-50/50 border border-amber-100 rounded-xl">
                                 <p className="text-[9px] font-bold text-amber-500 uppercase tracking-widest mb-0.5">Notes</p>
-                                <p className="text-xs text-slate-600 italic font-medium">"{getCleanInstructions(order.instructions)}"</p>
+                                <p className="text-xs text-slate-600 italic font-medium">&ldquo;{getCleanInstructions(order.instructions)}&rdquo;</p>
                               </div>
                             )}
                             <button
@@ -1054,7 +1054,7 @@ export default function ChefPortal() {
                               {order.instructions && (
                                 <div className="mb-6 p-3 bg-amber-50/50 border border-amber-100 rounded-xl">
                                   <p className="text-[9px] font-bold text-amber-500 uppercase tracking-widest mb-0.5">Notes</p>
-                                  <p className="text-xs text-slate-600 italic font-medium">"{order.instructions}"</p>
+                                  <p className="text-xs text-slate-600 italic font-medium">&ldquo;{order.instructions}&rdquo;</p>
                                 </div>
                               )}
                               <div className="flex gap-3">
@@ -1133,7 +1133,7 @@ export default function ChefPortal() {
                               {order.instructions && (
                                 <div className="mb-6 p-3 bg-amber-50/50 border border-amber-100 rounded-xl">
                                   <p className="text-[9px] font-bold text-amber-500 uppercase tracking-widest mb-0.5">Notes</p>
-                                  <p className="text-xs text-slate-600 italic font-medium">"{getCleanInstructions(order.instructions)}"</p>
+                                  <p className="text-xs text-slate-600 italic font-medium">&ldquo;{getCleanInstructions(order.instructions)}&rdquo;</p>
                                 </div>
                               )}
                               <button
@@ -1382,7 +1382,7 @@ export default function ChefPortal() {
                                     ))}
                                     {getCleanInstructions(order.instructions) && (
                                       <div className="text-[10px] text-amber-600 font-bold italic mt-1.5">
-                                        Note: "{getCleanInstructions(order.instructions)}"
+                                        Note: &ldquo;{getCleanInstructions(order.instructions)}&rdquo;
                                       </div>
                                     )}
                                   </div>
@@ -1635,10 +1635,10 @@ export default function ChefPortal() {
               {selectedHistoryOrder.instructions && (
                 <div className="p-5 bg-amber-50/50 border border-amber-100 rounded-2xl text-xs text-left">
                   <p className="font-bold text-amber-600 uppercase tracking-widest text-[9px] mb-1">Notes & Instructions</p>
-                  <p className="text-slate-600 italic font-medium">"{getCleanInstructions(selectedHistoryOrder.instructions)}"</p>
+                  <p className="text-slate-600 italic font-medium">&ldquo;{getCleanInstructions(selectedHistoryOrder.instructions)}&rdquo;</p>
                   {getCancelReasonFromInstructions(selectedHistoryOrder.instructions) && (
                     <div className="mt-2 text-red-600 font-bold">
-                      Rejection Reason: "{getCancelReasonFromInstructions(selectedHistoryOrder.instructions)}"
+                      Rejection Reason: &ldquo;{getCancelReasonFromInstructions(selectedHistoryOrder.instructions)}&rdquo;
                     </div>
                   )}
                 </div>

@@ -285,6 +285,22 @@ export default function OrdersPage() {
       return;
     }
 
+    if (newOrderPhone && newOrderPhone.length !== 10) {
+      alert("Phone number must be exactly 10 digits!");
+      return;
+    }
+
+    if (newOrderPaymentMethod === 'credit') {
+      if (!newOrderCreditName.trim() || !newOrderCreditPhone.trim()) {
+        alert("Please fill in Credit customer's Full Name and Phone Number.");
+        return;
+      }
+      if (newOrderCreditPhone.length !== 10) {
+        alert("Credit Phone Number must be exactly 10 digits!");
+        return;
+      }
+    }
+
     setPlacingOrder(true);
     try {
       const orderData: any = {
@@ -873,10 +889,10 @@ export default function OrdersPage() {
                       <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block">Phone Number</label>
                       <input
                         type="text"
-                        placeholder="e.g. 03001234567"
-                        maxLength={11}
+                        placeholder="e.g. 9876543210"
+                        maxLength={10}
                         value={newOrderPhone}
-                        onChange={e => setNewOrderPhone(e.target.value.replace(/\D/g, ''))}
+                        onChange={e => setNewOrderPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
                         className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-brand-red outline-none"
                       />
                     </div>
@@ -955,9 +971,9 @@ export default function OrdersPage() {
                       <input
                         type="text"
                         placeholder="Credit Phone Number *"
-                        maxLength={11}
+                        maxLength={10}
                         value={newOrderCreditPhone}
-                        onChange={e => setNewOrderCreditPhone(e.target.value.replace(/\D/g, ''))}
+                        onChange={e => setNewOrderCreditPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
                         className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-xs outline-none"
                         required
                       />

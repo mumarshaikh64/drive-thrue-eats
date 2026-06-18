@@ -1,6 +1,6 @@
 'use client';
 import Link from 'next/link';
-import { ShoppingCart, Phone, Menu, X, LogOut, Heart, User, BookOpen } from 'lucide-react';
+import { ShoppingCart, Phone, Menu, X, LogOut, Heart, User, BookOpen, Clock } from 'lucide-react';
 import { useCart } from './CartContext';
 import { useState, useEffect, useRef } from 'react';
 import { ChevronDown } from 'lucide-react';
@@ -116,6 +116,13 @@ export default function Navbar() {
                 </div>
                 Book Table
               </Link>
+
+              <Link href="/track" className="text-sm font-bold text-brand-text hover:text-brand-red transition-all flex items-center gap-2">
+                <div className="w-8 h-8 rounded-full bg-brand-bg flex items-center justify-center text-brand-red">
+                  <Clock size={14} />
+                </div>
+                Track Order
+              </Link>
               
               <a href="#footer" className="flex items-center gap-2 text-brand-text hover:text-brand-red transition-colors text-sm font-bold">
                 <div className="w-8 h-8 rounded-full bg-brand-bg flex items-center justify-center text-brand-red">
@@ -176,6 +183,12 @@ export default function Navbar() {
                       <BookOpen size={18} />
                     </div>
                     <span className="font-bold text-brand-text">Book Dining Table</span>
+                  </Link>
+                  <Link href="/track" onClick={() => setMobileOpen(false)} className="flex items-center gap-3 p-4 hover:bg-brand-bg rounded-2xl transition-colors group">
+                    <div className="w-10 h-10 rounded-xl bg-brand-red/10 text-brand-red flex items-center justify-center group-hover:scale-110 transition-transform">
+                      <Clock size={18} />
+                    </div>
+                    <span className="font-bold text-brand-text">Track Order</span>
                   </Link>
                   <a href="#footer" onClick={() => setMobileOpen(false)} className="flex items-center gap-3 p-4 hover:bg-brand-bg rounded-2xl transition-colors group">
                     <div className="w-10 h-10 rounded-xl bg-brand-red/10 text-brand-red flex items-center justify-center group-hover:scale-110 transition-transform">
