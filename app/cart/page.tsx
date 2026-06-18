@@ -90,7 +90,7 @@ export default function CartPage() {
       .then(data => {
         if (Array.isArray(data)) setTablesList(data);
       });
-      
+
     // Check for saved coupon from Hero section
     const savedCoupon = localStorage.getItem('savedCoupon');
     if (savedCoupon) {
@@ -120,7 +120,7 @@ export default function CartPage() {
       const res = await fetch('/api/coupons');
       const coupons = await res.json();
       const validCoupon = coupons.find((c: any) => c.code === coupon.toUpperCase() && c.isActive);
-      
+
       if (validCoupon) {
         setDiscount(validCoupon.discount);
       } else {
@@ -225,25 +225,25 @@ export default function CartPage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(newOrder)
     })
-    .then(async (res) => {
-      const data = await res.json();
-      if (res.ok) {
-        setPlacedOrder(data.order);
-        setOrderPlaced(true);
-        clearCart();
-        localStorage.removeItem('savedCoupon');
-      } else {
-        alert('Order Failed: ' + (data.detail || data.error || 'Unknown Error'));
-      }
-    })
-    .catch(err => {
-      alert('Network Error: Could not reach server');
-      console.error(err);
-    });
+      .then(async (res) => {
+        const data = await res.json();
+        if (res.ok) {
+          setPlacedOrder(data.order);
+          setOrderPlaced(true);
+          clearCart();
+          localStorage.removeItem('savedCoupon');
+        } else {
+          alert('Order Failed: ' + (data.detail || data.error || 'Unknown Error'));
+        }
+      })
+      .catch(err => {
+        alert('Network Error: Could not reach server');
+        console.error(err);
+      });
   };
 
   if (orderPlaced) {
-    const orderItems = placedOrder 
+    const orderItems = placedOrder
       ? (typeof placedOrder.items === 'string' ? JSON.parse(placedOrder.items) : placedOrder.items)
       : [];
 
@@ -263,7 +263,7 @@ export default function CartPage() {
               {/* Receipt Header */}
               <div className="flex flex-wrap justify-between items-center gap-4 border-b border-slate-200/60 pb-4">
                 <div>
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Order Number</span>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Tracking Number</span>
                   <span className="text-xl font-black text-slate-800 tracking-tight uppercase">{placedOrder.orderId}</span>
                 </div>
                 <div className="text-right">
@@ -409,11 +409,10 @@ export default function CartPage() {
                         <button
                           key={t.id}
                           onClick={() => setSelectedTable(t.number)}
-                          className={`py-4 rounded-2xl border-2 transition-all font-bold text-sm ${
-                            selectedTable === t.number
+                          className={`py-4 rounded-2xl border-2 transition-all font-bold text-sm ${selectedTable === t.number
                               ? 'bg-brand-red border-brand-red text-white shadow-lg'
                               : 'bg-white border-brand-border text-brand-text hover:border-brand-red/30'
-                          }`}
+                            }`}
                         >
                           Table {t.number}
                         </button>
@@ -452,13 +451,13 @@ export default function CartPage() {
                       </div>
                       <div className="space-y-2">
                         <label className="text-xs font-bold text-slate-500 mb-1 block">Mobile Number</label>
-                        <input 
-                          type="tel" 
-                          value={phone} 
-                          onChange={e => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))} 
-                          maxLength={10} 
-                          placeholder="e.g. 9876543210" 
-                          className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-6 py-4 text-slate-800 placeholder-slate-300 focus:outline-none focus:ring-4 focus:ring-brand-red/5 focus:border-brand-red/20 transition-all font-medium shadow-sm" 
+                        <input
+                          type="tel"
+                          value={phone}
+                          onChange={e => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                          maxLength={10}
+                          placeholder="e.g. 9876543210"
+                          className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-6 py-4 text-slate-800 placeholder-slate-300 focus:outline-none focus:ring-4 focus:ring-brand-red/5 focus:border-brand-red/20 transition-all font-medium shadow-sm"
                         />
                       </div>
                     </div>
@@ -470,13 +469,13 @@ export default function CartPage() {
                 ) : (
                   <div className="space-y-2">
                     <label className="text-xs font-bold text-slate-500 mb-1 block">Mobile Number</label>
-                    <input 
-                      type="tel" 
-                      value={phone} 
-                      onChange={e => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))} 
-                      maxLength={10} 
-                      placeholder="e.g. 9876543210" 
-                      className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-6 py-4 text-slate-800 placeholder-slate-300 focus:outline-none focus:ring-4 focus:ring-brand-red/5 focus:border-brand-red/20 transition-all font-medium shadow-sm" 
+                    <input
+                      type="tel"
+                      value={phone}
+                      onChange={e => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                      maxLength={10}
+                      placeholder="e.g. 9876543210"
+                      className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-6 py-4 text-slate-800 placeholder-slate-300 focus:outline-none focus:ring-4 focus:ring-brand-red/5 focus:border-brand-red/20 transition-all font-medium shadow-sm"
                     />
                   </div>
                 )}
@@ -570,18 +569,18 @@ export default function CartPage() {
                   <div className="space-y-6 p-6 bg-slate-50 rounded-3xl border border-slate-100 animate-fade-in">
                     <div className="space-y-2">
                       <label className="text-xs font-bold text-slate-500 block">Transaction Number *</label>
-                      <input 
-                        type="text" 
-                        value={transactionNumber} 
-                        onChange={e => setTransactionNumber(e.target.value)} 
-                        placeholder="Enter Transaction Number/ID" 
-                        className="w-full bg-white border border-slate-200 rounded-2xl px-6 py-4 text-slate-800 placeholder-slate-300 focus:outline-none focus:ring-4 focus:ring-brand-red/5 focus:border-brand-red/20 transition-all shadow-sm font-medium" 
+                      <input
+                        type="text"
+                        value={transactionNumber}
+                        onChange={e => setTransactionNumber(e.target.value)}
+                        placeholder="Enter Transaction Number/ID"
+                        className="w-full bg-white border border-slate-200 rounded-2xl px-6 py-4 text-slate-800 placeholder-slate-300 focus:outline-none focus:ring-4 focus:ring-brand-red/5 focus:border-brand-red/20 transition-all shadow-sm font-medium"
                       />
                     </div>
 
                     <div className="space-y-2">
                       <label className="text-xs font-bold text-slate-500 block">Upload Transaction Screenshot *</label>
-                      
+
                       {!screenshot ? (
                         <label className="flex flex-col items-center justify-center w-full h-40 border-2 border-dashed border-slate-300 rounded-3xl cursor-pointer hover:bg-white hover:border-brand-red/40 transition-all group bg-white/50">
                           <div className="flex flex-col items-center justify-center pt-5 pb-6">
@@ -604,9 +603,9 @@ export default function CartPage() {
                               <CheckCircle2 size={12} /> Ready to submit
                             </p>
                           </div>
-                          <button 
-                            type="button" 
-                            onClick={() => setScreenshot('')} 
+                          <button
+                            type="button"
+                            onClick={() => setScreenshot('')}
                             className="w-8 h-8 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center hover:bg-red-50 hover:text-red-500 transition-colors mr-2"
                           >
                             <X size={16} />
@@ -661,13 +660,12 @@ export default function CartPage() {
 
               <div className="flex flex-col gap-4 mt-8">
                 <Link href="/" className="w-full bg-[#f06d2e] text-white py-4 rounded-xl font-bold uppercase tracking-tight text-center shadow-lg shadow-orange-500/10 hover:scale-[1.01] transition-all">Add More Item</Link>
-                 <button 
-                  onClick={placeOrder} 
-                  className={`w-full py-4 rounded-xl font-bold uppercase tracking-tight shadow-xl transition-all ${
-                    isRestaurantClosed 
-                      ? 'bg-gray-400 text-white cursor-not-allowed opacity-70 shadow-none' 
+                <button
+                  onClick={placeOrder}
+                  className={`w-full py-4 rounded-xl font-bold uppercase tracking-tight shadow-xl transition-all ${isRestaurantClosed
+                      ? 'bg-gray-400 text-white cursor-not-allowed opacity-70 shadow-none'
                       : 'bg-[#f06d2e] text-white shadow-orange-500/20 hover:scale-[1.02] active:scale-[0.98]'
-                  }`}
+                    }`}
                 >
                   {isRestaurantClosed ? 'Restaurant Closed' : 'Place Order'}
                 </button>

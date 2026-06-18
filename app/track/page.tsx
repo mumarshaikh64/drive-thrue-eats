@@ -59,7 +59,7 @@ export default function TrackPage() {
   // Live auto-refresh loop (every 10s)
   useEffect(() => {
     if (!orderId || !autoRefresh || loading) return;
-    
+
     // Don't keep refreshing completed orders
     if (order && (order.status === 'Delivered' || order.status === 'Cancelled')) {
       return;
@@ -96,8 +96,8 @@ export default function TrackPage() {
   };
 
   const currentStepIdx = order ? getStepIndex(order.status) : -1;
-  const orderItems = order 
-    ? (typeof order.items === 'string' ? JSON.parse(order.items) : order.items) 
+  const orderItems = order
+    ? (typeof order.items === 'string' ? JSON.parse(order.items) : order.items)
     : [];
 
   return (
@@ -113,7 +113,7 @@ export default function TrackPage() {
           <h1 className="text-4xl lg:text-6xl font-bold text-brand-text tracking-tighter">
             Track Your <span className="text-brand-red">Order.</span>
           </h1>
-          <p className="text-slate-400 font-medium text-sm mt-2">Enter your Order ID (e.g. DT-00049) to see real-time updates.</p>
+          <p className="text-slate-400 font-medium text-sm mt-2">Enter your Tracking ID (e.g. DT-00049) to see real-time updates.</p>
         </div>
 
         {/* Search Bar Form */}
@@ -122,7 +122,7 @@ export default function TrackPage() {
             <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-300" size={20} />
             <input
               type="text"
-              placeholder="Enter Order ID (e.g. DT-00049)"
+              placeholder="Enter Tracking ID (e.g. DT-00049)"
               value={orderIdInput}
               onChange={e => setOrderIdInput(e.target.value)}
               className="w-full bg-slate-50 border border-slate-100 rounded-2xl pl-16 pr-6 py-4 text-slate-800 font-bold placeholder-slate-300 focus:outline-none focus:ring-4 focus:ring-brand-red/5 focus:border-brand-red/20 transition-all"
@@ -154,7 +154,7 @@ export default function TrackPage() {
             {/* Live Progress Card */}
             <div className="bg-white rounded-[2.5rem] p-8 md:p-12 border border-slate-100 shadow-premium relative overflow-hidden">
               <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-brand-red via-brand-orange to-brand-red" />
-              
+
               <div className="flex flex-wrap justify-between items-center gap-4 mb-10">
                 <div>
                   <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Live Tracking</span>
@@ -196,7 +196,7 @@ export default function TrackPage() {
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-8 md:gap-4 relative pt-4">
                   {/* Line decoration for desktop */}
                   <div className="hidden md:block absolute left-8 right-8 top-[36px] h-1 bg-slate-100 z-0">
-                    <div 
+                    <div
                       className="h-full bg-gradient-to-r from-green-500 to-orange-500 transition-all duration-1000"
                       style={{ width: `${Math.max(0, currentStepIdx) * 33.3}%` }}
                     />
@@ -210,13 +210,12 @@ export default function TrackPage() {
                     return (
                       <div key={idx} className="flex md:flex-col items-center gap-4 md:text-center z-10">
                         {/* Indicator Circle */}
-                        <div className={`w-12 h-12 rounded-full flex items-center justify-center border-4 transition-all duration-500 ${
-                          isCompleted
-                            ? 'bg-green-500 border-green-200 text-white'
-                            : isCurrent
-                              ? 'bg-orange-500 border-orange-200 text-white shadow-lg shadow-orange-500/20 scale-110 animate-pulse-subtle'
-                              : 'bg-white border-slate-100 text-slate-300'
-                        }`}>
+                        <div className={`w-12 h-12 rounded-full flex items-center justify-center border-4 transition-all duration-500 ${isCompleted
+                          ? 'bg-green-500 border-green-200 text-white'
+                          : isCurrent
+                            ? 'bg-orange-500 border-orange-200 text-white shadow-lg shadow-orange-500/20 scale-110 animate-pulse-subtle'
+                            : 'bg-white border-slate-100 text-slate-300'
+                          }`}>
                           {isCompleted ? (
                             <CheckCircle2 size={20} fill="currentColor" className="text-green-500 stroke-white" />
                           ) : isCurrent ? (
@@ -246,7 +245,7 @@ export default function TrackPage() {
             <div className="bg-white rounded-[2.5rem] p-8 md:p-12 border border-slate-100 shadow-premium">
               <div className="space-y-6">
                 <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest border-b border-slate-100 pb-3 block">Order Summary Details</div>
-                
+
                 {/* Details list */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs font-semibold text-slate-600 border-b border-slate-100 pb-6">
                   <div className="space-y-2.5">
