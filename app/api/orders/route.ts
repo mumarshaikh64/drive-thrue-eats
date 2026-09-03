@@ -10,14 +10,12 @@ export async function GET(req: Request) {
     const limit = searchParams.get('limit') ? parseInt(searchParams.get('limit')!) : 1000;
 
     const where: any = {};
-    if (status) where.status = status;
-    
-    // If no status provided, usually we only want active/recent orders for the dashboard
-    if (!status) {
-      where.OR = [
-        { status: { notIn: ['Delivered', 'Cancelled'] } },
-        { timestamp: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) } } // Or last 24h
-      ];
+    if (status) {
+      if (status === 'Delivered') {
+        where.status = { in: ['Delivered', 'Completed'] };
+      } else {
+        where.status = status;
+      }
     }
 
     const orders = await prisma.order.findMany({
@@ -206,10 +204,10 @@ export async function PATCH(req: Request) {
             ...it,
             status: it.status === 'pending' || !it.status ? 'preparing' : it.status
           }));
-        } else if (updates.status === 'Ready') {
+        } else if (updates.status === 'Ready' || updates.status === 'Delivered' || updates.status === 'Completed') {
           items = items.map((it: any) => ({
             ...it,
-            status: it.status === 'preparing' || it.status === 'pending' || !it.status ? 'ready' : it.status
+            status: 'ready'
           }));
         }
         updates.items = JSON.stringify(items);

@@ -38,6 +38,12 @@ export function middleware(request: NextRequest) {
 
   // 1. Subdomain-based Routing
   if (subdomain === 'admin') {
+    const hasAutoSid = request.nextUrl.searchParams.has('autoSid') || request.nextUrl.searchParams.has('sid');
+
+    if (pathname.startsWith('/chef') || pathname.startsWith('/waiter') || (pathname.startsWith('/staff') && hasAutoSid)) {
+      return NextResponse.next();
+    }
+
     const targetPath = pathname.startsWith('/admin') ? pathname : `/admin${pathname}`;
     const isAdminLoginPage = targetPath === '/admin/login';
 

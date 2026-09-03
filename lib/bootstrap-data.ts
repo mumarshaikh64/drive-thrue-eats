@@ -93,4 +93,18 @@ export async function ensureMenuAndCouponsSeeded() {
       });
     });
   }
+
+  const userCount = await prisma.user.count();
+  if (userCount === 0) {
+    await prisma.user.upsert({
+      where: { email: 'admin@burgerarena.com' },
+      update: { password: 'admin123' },
+      create: {
+        name: 'Super Admin',
+        email: 'admin@burgerarena.com',
+        password: 'admin123',
+        role: 'admin',
+      },
+    });
+  }
 }

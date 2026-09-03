@@ -10,7 +10,7 @@ export async function GET() {
   const session = parseAdminSessionValue(rawSession);
 
   if (!session) {
-    return NextResponse.json({ authenticated: false }, { status: 401 });
+    return NextResponse.json({ authenticated: false }, { status: 200 });
   }
 
   return NextResponse.json({ authenticated: true, user: session });

@@ -1,11 +1,15 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { Search, ShoppingBag, Filter, X, Trash2, Edit2, CheckCircle, Clock, Eye, Info, Calendar } from 'lucide-react';
+import { 
+  Search, ShoppingBag, Filter, X, Trash2, Edit2, CheckCircle, 
+  CheckCircle2, Clock, Eye, Info, Calendar, Sparkles, Check, 
+  ChevronDown, RefreshCw 
+} from 'lucide-react';
 
 export default function OrdersPage() {
   const [orders, setOrders] = useState<any[]>([]);
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('All');
+  const [statusFilter, setStatusFilter] = useState('Pending');
   const [typeFilter, setTypeFilter] = useState('All');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
@@ -15,7 +19,6 @@ export default function OrdersPage() {
   const [lastOrderId, setLastOrderId] = useState<string | null>(null);
 
   const fetchOrders = () => {
-    // Audio Notification Sound (Royalty Free Bell)
     const notificationSound = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
 
     fetch('/api/orders')
@@ -39,25 +42,27 @@ export default function OrdersPage() {
     fetchOrders();
     const interval = setInterval(fetchOrders, 10000);
     return () => clearInterval(interval);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lastOrderId]);
 
   const filteredOrders = (Array.isArray(orders) ? orders : []).filter(o => {
     const matchesSearch = (o.orderId || o.id || "").toLowerCase().includes(search.toLowerCase()) ||
                          (o.customerName || "").toLowerCase().includes(search.toLowerCase());
-    const matchesStatus = statusFilter === 'All' || o.status === statusFilter;
+    const matchesStatus = statusFilter === 'All' || 
+      (statusFilter === 'Delivered' 
+        ? (o.status === 'Delivered' || o.status === 'Completed') 
+        : o.status === statusFilter);
     const matchesType = typeFilter === 'All' || o.type === typeFilter;
     
     let matchesDate = true;
     const orderDate = new Date(o.timestamp);
     if (startDate) {
       const start = new Date(startDate);
-      start.setHours(0, 0, 0, 0); // Start of the day
+      start.setHours(0, 0, 0, 0);
       if (orderDate < start) matchesDate = false;
     }
     if (endDate) {
       const end = new Date(endDate);
-      end.setHours(23, 59, 59, 999); // End of the day
+      end.setHours(23, 59, 59, 999);
       if (orderDate > end) matchesDate = false;
     }
 
@@ -69,7 +74,12 @@ export default function OrdersPage() {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id: orderId, updates: { status: newStatus } })
-    }).then(() => fetchOrders());
+    }).then(() => {
+      fetchOrders();
+      if (selectedOrder && (selectedOrder.orderId === orderId || selectedOrder.id === orderId)) {
+        setSelectedOrder((prev: any) => prev ? { ...prev, status: newStatus } : null);
+      }
+    });
   };
 
   const cancelOrder = (orderId: string) => {
@@ -78,14 +88,19 @@ export default function OrdersPage() {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id: orderId })
-    }).then(() => fetchOrders());
+    }).then(() => {
+      fetchOrders();
+      if (selectedOrder && (selectedOrder.orderId === orderId || selectedOrder.id === orderId)) {
+        setSelectedOrder(null);
+      }
+    });
   };
 
   const shareOrderViaWhatsApp = (order: any) => {
     if (!order) return;
     const defaultPhone = order.phone && order.phone !== 'N/A' ? order.phone : '';
     const phoneInput = prompt("Enter Customer WhatsApp Phone Number (with Country Code, e.g. 923001234567 or 919876543210):", defaultPhone);
-    if (phoneInput === null) return; // User cancelled
+    if (phoneInput === null) return;
 
     const cleanPhone = phoneInput.replace(/\D/g, '');
     if (!cleanPhone) {
@@ -113,7 +128,7 @@ export default function OrdersPage() {
       <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-6 bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
         <div>
           <h1 className="text-3xl font-bold text-[#212529]">Advanced Orders</h1>
-          <p className="text-[#6c757d] font-medium mt-1">Manage, filter, and modify live restaurant orders.</p>
+          <p className="text-[#6c757d] font-medium mt-1">Manage, filter, and complete live restaurant orders with full admin control.</p>
         </div>
         
         <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto">
@@ -223,8 +238,8 @@ export default function OrdersPage() {
                 <th className="p-6">Order</th>
                 <th className="p-6">Customer</th>
                 <th className="p-6">Items</th>
-                <th className="p-6 text-center">Summary</th>
-                <th className="p-6 text-right">Actions</th>
+                <th className="p-6 text-center">Status & Total</th>
+                <th className="p-6 text-right">Admin Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
@@ -234,73 +249,97 @@ export default function OrdersPage() {
                     No orders matching your filters.
                   </td>
                 </tr>
-              ) : filteredOrders.map(order => (
-                <tr key={order.id} className="hover:bg-gray-50/50 transition-colors">
-                  <td className="p-6 align-top">
-                    <p className="font-bold text-gray-900">{order.orderId}</p>
-                    <p className="text-[10px] font-bold text-gray-400 mt-1 uppercase">
-                      {new Date(order.timestamp).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
-                    </p>
-                    <div className={`mt-2 inline-block px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
-                      order.type === 'dining' ? 'bg-orange-100 text-orange-600' :
-                      order.type === 'delivery' ? 'bg-blue-100 text-blue-600' : 'bg-purple-100 text-purple-600'
-                    }`}>
-                      {order.type} {order.tableNumber ? `#${order.tableNumber}` : ''}
-                    </div>
-                  </td>
-                  <td className="p-6 align-top">
-                    <p className="font-bold text-gray-900">{order.customerName}</p>
-                    <p className="text-xs font-semibold text-gray-400">{order.phone}</p>
-                    {order.email && <p className="text-[10px] text-gray-400">{order.email}</p>}
-                    {order.address && <p className="text-[10px] text-gray-500 mt-2 max-w-[150px] line-clamp-2">{order.address}</p>}
-                  </td>
-                  <td className="p-6 align-top">
-                    <div className="space-y-1">
-                      {(Array.isArray(order.items) ? order.items : []).map((it: any, i: number) => (
-                        <div key={i} className="text-xs font-bold text-gray-600 flex justify-between gap-4">
-                          <span>{it.quantity}x {it.name}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </td>
-                  <td className="p-6 align-top text-center">
-                    <p className="text-xl font-bold text-brand-red">₹{order.total}</p>
-                    <div className="mt-2 flex flex-col items-center gap-1">
-                      <span className={`text-[10px] font-bold uppercase px-3 py-1 rounded-full shadow-sm ${
-                        order.status === 'Pending' ? 'bg-red-50 text-red-600 border border-red-100' :
-                        order.status === 'Preparing' ? 'bg-orange-50 text-orange-600 border border-orange-100' :
-                        order.status === 'Ready' ? 'bg-blue-50 text-blue-600 border border-blue-100' : 
-                        'bg-green-50 text-green-600 border border-green-100'
+              ) : filteredOrders.map(order => {
+                const isCompleted = order.status === 'Delivered' || order.status === 'Completed';
+                const currentOrderId = order.orderId || order.id;
+
+                return (
+                  <tr key={order.id} className="hover:bg-gray-50/50 transition-colors">
+                    <td className="p-6 align-top">
+                      <p className="font-bold text-gray-900">{order.orderId}</p>
+                      <p className="text-[10px] font-bold text-gray-400 mt-1 uppercase">
+                        {new Date(order.timestamp).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
+                      </p>
+                      <div className={`mt-2 inline-block px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
+                        order.type === 'dining' ? 'bg-orange-100 text-orange-600' :
+                        order.type === 'delivery' ? 'bg-blue-100 text-blue-600' : 'bg-purple-100 text-purple-600'
                       }`}>
-                        {order.status}
-                      </span>
-                    </div>
-                  </td>
-                  <td className="p-6 align-top text-right">
-                    <div className="flex justify-end gap-2">
-                      <button 
-                        onClick={() => setSelectedOrder(order)}
-                        className="p-2.5 rounded-xl transition-all text-gray-400 hover:text-blue-600 hover:bg-blue-50"
-                        title="View Full Details"
-                      >
-                        <Eye size={18} />
-                      </button>
-                      <button 
-                        onClick={() => cancelOrder(order.orderId)}
-                        disabled={order.status !== 'Pending'}
-                        className={`p-2.5 rounded-xl transition-all ${
-                          order.status === 'Pending' 
-                            ? 'text-gray-300 hover:text-red-500 hover:bg-red-50' 
-                            : 'text-gray-100 cursor-not-allowed opacity-30'
-                        }`}
-                        title={order.status === 'Pending' ? "Cancel/Delete Order" : "Cannot cancel once preparation starts"}
-                      >
-                        <Trash2 size={18} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                        {order.type} {order.tableNumber ? `#${order.tableNumber}` : ''}
+                      </div>
+                    </td>
+                    <td className="p-6 align-top">
+                      <p className="font-bold text-gray-900">{order.customerName}</p>
+                      <p className="text-xs font-semibold text-gray-400">{order.phone}</p>
+                      {order.email && <p className="text-[10px] text-gray-400">{order.email}</p>}
+                      {order.address && <p className="text-[10px] text-gray-500 mt-2 max-w-[150px] line-clamp-2">{order.address}</p>}
+                    </td>
+                    <td className="p-6 align-top">
+                      <div className="space-y-1">
+                        {(Array.isArray(order.items) ? order.items : []).map((it: any, i: number) => (
+                          <div key={i} className="text-xs font-bold text-gray-600 flex justify-between gap-4">
+                            <span>{it.quantity}x {it.name}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </td>
+                    <td className="p-6 align-top text-center">
+                      <p className="text-xl font-bold text-brand-red">₹{order.total}</p>
+                      
+                      <div className="mt-2 flex flex-col items-center gap-1.5">
+                        {/* Status Select dropdown */}
+                        <select
+                          value={order.status}
+                          onChange={(e) => updateStatus(currentOrderId, e.target.value)}
+                          className={`text-xs font-bold px-3 py-1 rounded-full border shadow-sm outline-none cursor-pointer ${
+                            order.status === 'Pending' ? 'bg-red-50 text-red-600 border-red-200' :
+                            order.status === 'Preparing' ? 'bg-orange-50 text-orange-600 border-orange-200' :
+                            order.status === 'Ready' ? 'bg-blue-50 text-blue-600 border-blue-200' : 
+                            'bg-green-50 text-green-700 border-green-200'
+                          }`}
+                        >
+                          <option value="Pending">Pending</option>
+                          <option value="Preparing">Preparing</option>
+                          <option value="Ready">Ready</option>
+                          <option value="Delivered">Delivered (Completed)</option>
+                        </select>
+                      </div>
+                    </td>
+                    <td className="p-6 align-top text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        {!isCompleted ? (
+                          <button
+                            onClick={() => updateStatus(currentOrderId, 'Delivered')}
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-3.5 py-2 rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-sm active:scale-95 whitespace-nowrap"
+                            title="Directly complete this entire order"
+                          >
+                            <CheckCircle2 size={16} /> Complete Order
+                          </button>
+                        ) : (
+                          <span className="text-xs bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold px-3 py-1.5 rounded-xl flex items-center gap-1">
+                            <Check size={14} /> Completed
+                          </span>
+                        )}
+
+                        <button 
+                          onClick={() => setSelectedOrder(order)}
+                          className="p-2.5 rounded-xl transition-all text-gray-400 hover:text-blue-600 hover:bg-blue-50"
+                          title="View Full Details & Admin Controls"
+                        >
+                          <Eye size={18} />
+                        </button>
+
+                        <button 
+                          onClick={() => cancelOrder(currentOrderId)}
+                          className="p-2.5 rounded-xl transition-all text-gray-400 hover:text-red-500 hover:bg-red-50"
+                          title="Cancel / Delete Order"
+                        >
+                          <Trash2 size={18} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -316,7 +355,7 @@ export default function OrdersPage() {
                 <h2 className="text-2xl font-bold flex items-center gap-2">
                   <Info className="text-brand-red" /> Order Details
                 </h2>
-                <span className="text-gray-400 font-bold text-xs uppercase tracking-widest mt-1">ID: {selectedOrder.orderId}</span>
+                <span className="text-gray-400 font-bold text-xs uppercase tracking-widest mt-1">ID: {selectedOrder.orderId || selectedOrder.id}</span>
               </div>
               <button 
                 onClick={() => setSelectedOrder(null)} 
@@ -325,8 +364,48 @@ export default function OrdersPage() {
                 <X size={20} />
               </button>
             </div>
+
+            {/* Admin Order Controller Bar */}
+            <div className="bg-slate-900 text-white p-5 border-b border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="flex items-center gap-2">
+                <Sparkles size={20} className="text-amber-400" />
+                <span className="text-xs font-bold uppercase tracking-wider text-amber-300">Admin Control Panel</span>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                {['Pending', 'Preparing', 'Ready', 'Delivered'].map((st) => (
+                  <button
+                    key={st}
+                    onClick={() => updateStatus(selectedOrder.orderId || selectedOrder.id, st)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                      selectedOrder.status === st
+                        ? 'bg-amber-400 text-slate-950 shadow-md scale-105'
+                        : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                    }`}
+                  >
+                    {st === 'Delivered' ? 'Delivered (Complete)' : st}
+                  </button>
+                ))}
+              </div>
+            </div>
             
             <div className="p-6 space-y-8">
+              {/* Quick Complete Callout */}
+              {selectedOrder.status !== 'Delivered' && (
+                <div className="bg-emerald-50 border border-emerald-200 p-4 rounded-2xl flex items-center justify-between gap-4">
+                  <div>
+                    <h4 className="font-bold text-emerald-900 text-sm">Need to complete this order instantly?</h4>
+                    <p className="text-xs text-emerald-700">Clicking below will set order status to Delivered and mark all items as finished.</p>
+                  </div>
+                  <button
+                    onClick={() => updateStatus(selectedOrder.orderId || selectedOrder.id, 'Delivered')}
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-5 py-2.5 rounded-xl text-xs flex items-center gap-2 transition-all shadow-md active:scale-95 whitespace-nowrap"
+                  >
+                    <CheckCircle2 size={18} /> Complete Entire Order
+                  </button>
+                </div>
+              )}
+
               {/* Grid Info */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 bg-gray-50 rounded-2xl p-6 border border-gray-100">
                 <div>
@@ -378,6 +457,10 @@ export default function OrdersPage() {
                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest w-12 inline-block">Waiter:</span> 
                        <span className="font-bold text-gray-700">{selectedOrder.waiter || 'Unassigned'}</span>
                      </p>
+                     <p className="text-sm">
+                       <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest w-12 inline-block">Chef:</span> 
+                       <span className="font-bold text-gray-700">{selectedOrder.chef || 'Unassigned'}</span>
+                     </p>
                    </div>
                 </div>
               </div>
@@ -412,21 +495,32 @@ export default function OrdersPage() {
             </div>
             
             <div className="p-6 border-t border-gray-100 bg-gray-50 rounded-b-[2rem] flex justify-between items-center">
-              <button
-                type="button"
-                onClick={() => shareOrderViaWhatsApp(selectedOrder)}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 px-6 rounded-xl transition-all shadow-md active:scale-95 flex items-center gap-2 text-xs uppercase tracking-wider"
-              >
-                <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
-                  <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L0 24l6.335-1.662c1.746.953 3.71 1.458 5.704 1.458h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413" />
-                </svg>
-                Share via WhatsApp
-              </button>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => shareOrderViaWhatsApp(selectedOrder)}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 px-5 rounded-xl transition-all shadow-md active:scale-95 flex items-center gap-2 text-xs uppercase tracking-wider"
+                >
+                  <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
+                    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L0 24l6.335-1.662c1.746.953 3.71 1.458 5.704 1.458h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413" />
+                  </svg>
+                  Share Receipt
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => cancelOrder(selectedOrder.orderId || selectedOrder.id)}
+                  className="bg-red-50 hover:bg-red-100 text-red-600 font-bold py-2.5 px-4 rounded-xl transition-all text-xs flex items-center gap-1.5"
+                >
+                  <Trash2 size={16} /> Delete Order
+                </button>
+              </div>
+
               <button 
                 onClick={() => setSelectedOrder(null)}
-                className="btn-primary py-3 px-8 text-sm"
+                className="btn-primary py-2.5 px-6 text-sm"
               >
-                Close Details
+                Close
               </button>
             </div>
           </div>

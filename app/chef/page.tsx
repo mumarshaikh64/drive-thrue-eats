@@ -6,6 +6,7 @@ import {
 
 export default function ChefPortal() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [chef, setChef] = useState<any>(null);
   const [sid, setSid] = useState('');
   const [pin, setPin] = useState('');
@@ -47,19 +48,52 @@ export default function ChefPortal() {
   };
 
   useEffect(() => {
-    const saved = localStorage.getItem('dte_chef_session');
-    if (saved) {
+    const handleAutoLoginAndSession = async () => {
       try {
-        const parsed = JSON.parse(saved);
-        if (parsed && parsed.sid) {
-          setChef(parsed);
-          setIsLoggedIn(true);
+        const urlParams = new URLSearchParams(window.location.search);
+        const autoSid = urlParams.get('autoSid') || urlParams.get('sid');
+
+        if (autoSid) {
+          try {
+            const res = await fetch('/api/staff/login', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ sid: autoSid, directLogin: true })
+            });
+            const data = await res.json();
+            if (data.success && data.staff) {
+              setChef(data.staff);
+              setIsLoggedIn(true);
+              localStorage.setItem('dte_chef_session', JSON.stringify(data.staff));
+              localStorage.setItem('dte_staff_session', JSON.stringify(data.staff));
+              const cleanUrl = window.location.pathname;
+              window.history.replaceState({}, document.title, cleanUrl);
+              return;
+            }
+          } catch (e) {
+            console.error("Auto login error:", e);
+          }
         }
-      } catch (e) {
-        console.error("Session restore error", e);
-        localStorage.removeItem('dte_chef_session');
+
+        const saved = localStorage.getItem('dte_chef_session');
+        if (saved) {
+          try {
+            const parsed = JSON.parse(saved);
+            if (parsed && parsed.sid) {
+              setChef(parsed);
+              setIsLoggedIn(true);
+            }
+          } catch (e) {
+            console.error("Session restore error", e);
+            localStorage.removeItem('dte_chef_session');
+          }
+        }
+      } finally {
+        setIsCheckingAuth(false);
       }
-    }
+    };
+
+    handleAutoLoginAndSession();
 
     loadInitialData();
     const interval = setInterval(loadInitialData, 3000); // 3 seconds live poll
@@ -125,6 +159,15 @@ export default function ChefPortal() {
       alert('Failed to update order status');
     }
   };
+
+  if (isCheckingAuth) {
+    return (
+      <div className="min-h-screen bg-[#0f172a] flex flex-col items-center justify-center p-6 text-white">
+        <Loader2 className="animate-spin text-orange-500 mb-4" size={48} />
+        <p className="font-bold text-lg text-slate-200">Authenticating Chef Session...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#f8fafc] text-slate-900 font-sans selection:bg-brand-red/10 overflow-hidden">

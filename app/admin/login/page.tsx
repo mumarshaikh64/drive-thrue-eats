@@ -36,7 +36,8 @@ export default function AdminLoginPage() {
     const verifySession = async () => {
       try {
         const res = await fetch('/api/auth/session', { cache: 'no-store' });
-        if (res.ok) {
+        const data = await res.json();
+        if (res.ok && data.authenticated) {
           router.replace(isSub ? '/' : '/admin');
         }
       } catch {

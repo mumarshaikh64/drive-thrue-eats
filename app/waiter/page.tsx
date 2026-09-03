@@ -9,6 +9,7 @@ import { resolveMenuImage } from '@/lib/image-helper';
 
 export default function WaiterPortal() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [waiter, setWaiter] = useState<any>(null);
   const [sid, setSid] = useState('');
   const [pin, setPin] = useState('');
@@ -81,19 +82,52 @@ export default function WaiterPortal() {
   };
 
   useEffect(() => {
-    const saved = localStorage.getItem('dte_waiter_session');
-    if (saved) {
+    const handleAutoLoginAndSession = async () => {
       try {
-        const parsed = JSON.parse(saved);
-        if (parsed && parsed.sid) {
-          setWaiter(parsed);
-          setIsLoggedIn(true);
+        const urlParams = new URLSearchParams(window.location.search);
+        const autoSid = urlParams.get('autoSid') || urlParams.get('sid');
+
+        if (autoSid) {
+          try {
+            const res = await fetch('/api/staff/login', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ sid: autoSid, directLogin: true })
+            });
+            const data = await res.json();
+            if (data.success && data.staff) {
+              setWaiter(data.staff);
+              setIsLoggedIn(true);
+              localStorage.setItem('dte_waiter_session', JSON.stringify(data.staff));
+              localStorage.setItem('dte_staff_session', JSON.stringify(data.staff));
+              const cleanUrl = window.location.pathname;
+              window.history.replaceState({}, document.title, cleanUrl);
+              return;
+            }
+          } catch (e) {
+            console.error("Auto login error:", e);
+          }
         }
-      } catch (e) {
-        console.error("Session restore error", e);
-        localStorage.removeItem('dte_waiter_session');
+
+        const saved = localStorage.getItem('dte_waiter_session');
+        if (saved) {
+          try {
+            const parsed = JSON.parse(saved);
+            if (parsed && parsed.sid) {
+              setWaiter(parsed);
+              setIsLoggedIn(true);
+            }
+          } catch (e) {
+            console.error("Session restore error", e);
+            localStorage.removeItem('dte_waiter_session');
+          }
+        }
+      } finally {
+        setIsCheckingAuth(false);
       }
-    }
+    };
+
+    handleAutoLoginAndSession();
 
     loadInitialData();
     const interval = setInterval(loadInitialData, 3000); // 3 seconds for better real-time feel
@@ -334,6 +368,15 @@ export default function WaiterPortal() {
     const waUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
     window.open(waUrl, '_blank');
   };
+
+  if (isCheckingAuth) {
+    return (
+      <div className="min-h-screen bg-[#0f172a] flex flex-col items-center justify-center p-6 text-white">
+        <Loader2 className="animate-spin text-brand-red mb-4" size={48} />
+        <p className="font-bold text-lg text-slate-200">Authenticating Waiter Session...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#f8fafc] text-slate-900 font-sans selection:bg-brand-red/10 overflow-hidden">

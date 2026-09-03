@@ -12,6 +12,7 @@ type View = 'dashboard' | 'pos' | 'tables' | 'kitchen';
 
 export default function StaffPortal() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [staffData, setStaffData] = useState<any>(null);
   const [sid, setSid] = useState('');
   const [pin, setPin] = useState('');
@@ -32,13 +33,50 @@ export default function StaffPortal() {
   const [kitchenTab, setKitchenTab] = useState<'Pending' | 'Preparing' | 'Ready'>('Pending');
 
   useEffect(() => {
-    const saved = localStorage.getItem('dte_staff_session');
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      setStaffData(parsed);
-      setIsLoggedIn(true);
-      if (parsed.role === 'Kitchen Staff') setActiveTab('kitchen');
-    }
+    const handleAutoLoginAndSession = async () => {
+      try {
+        const urlParams = new URLSearchParams(window.location.search);
+        const autoSid = urlParams.get('autoSid') || urlParams.get('sid');
+
+        if (autoSid) {
+          try {
+            const res = await fetch('/api/staff/login', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ sid: autoSid, directLogin: true })
+            });
+            const data = await res.json();
+            if (data.success && data.staff) {
+              setStaffData(data.staff);
+              setIsLoggedIn(true);
+              localStorage.setItem('dte_staff_session', JSON.stringify(data.staff));
+              if (data.staff.role === 'Kitchen Staff') setActiveTab('kitchen');
+              const cleanUrl = window.location.pathname;
+              window.history.replaceState({}, document.title, cleanUrl);
+              return;
+            }
+          } catch (e) {
+            console.error("Auto login error:", e);
+          }
+        }
+
+        const saved = localStorage.getItem('dte_staff_session');
+        if (saved) {
+          try {
+            const parsed = JSON.parse(saved);
+            setStaffData(parsed);
+            setIsLoggedIn(true);
+            if (parsed.role === 'Kitchen Staff') setActiveTab('kitchen');
+          } catch (e) {
+            localStorage.removeItem('dte_staff_session');
+          }
+        }
+      } finally {
+        setIsCheckingAuth(false);
+      }
+    };
+
+    handleAutoLoginAndSession();
 
     const loadCoreData = async () => {
       try {
@@ -188,6 +226,16 @@ export default function StaffPortal() {
     setStaffData(null);
     setIsLoggedIn(false);
   };
+
+  if (isCheckingAuth) {
+    return (
+      <div className="min-h-screen bg-brand-bg flex flex-col items-center justify-center p-6 text-white">
+        <div className="animate-pulse text-brand-red font-bold text-lg tracking-widest uppercase mb-2">
+          Authenticating Session...
+        </div>
+      </div>
+    );
+  }
 
   if (!isLoggedIn) {
     return (
